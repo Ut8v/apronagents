@@ -63,7 +63,7 @@ class Orchestrator:
 
     async def _on_task_received(self, event: TaskReceived) -> None:
         self._task_id = event.task_id
-        issues = self.planner.plan(event.task_id, event.prompt)
+        issues = await self.planner.plan(event.task_id, event.prompt)
         for issue in issues:
             self.graph.add(issue)
             await self.bus.publish(
