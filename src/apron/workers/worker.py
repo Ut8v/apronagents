@@ -3,6 +3,8 @@ open review. Workers never merge their own work."""
 
 from __future__ import annotations
 
+from typing import Callable
+
 from apron.agents.definition import AgentDefinition
 from apron.bus.bus import EventBus
 from apron.bus.events import IssueClaimed, ReviewOpened, WorkerStarted, WorkStarted
@@ -23,12 +25,16 @@ class Worker:
         repo: SandboxRepo,
         runner: AgentRunner,
         bus: EventBus,
+        definition_resolver: Callable[[], AgentDefinition] | None = None,
     ) -> None:
         self.worker_id = worker_id
         self.definition = definition
         self.repo = repo
         self.runner = runner
         self.bus = bus
+        # With a resolver wired, the definition is re-resolved before every
+        # issue, which is what makes saved agent edits hot-reload.
+        self._definition_resolver = definition_resolver
         self._busy = False
         self._clone: WorkerClone | None = None
 
@@ -51,6 +57,8 @@ class Worker:
         """Work one issue on its own branch and open a review."""
         self._busy = True
         try:
+            if self._definition_resolver is not None:
+                self.definition = self._definition_resolver()
             await self.bus.publish(
                 IssueClaimed(issue_id=issue.issue_id, worker_id=self.worker_id)
             )

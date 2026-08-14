@@ -8,7 +8,9 @@ license = { text = "MIT" }
 authors = [{ name = "Utshav Khatiwada" }]
 keywords = ["agents", "orchestration", "git", "code-review"]
 dependencies = [
+    "fastapi>=0.141.1",
     "pyyaml>=6.0.3",
+    "uvicorn[standard]>=0.52.3",
 ]
 
 [project.scripts]
@@ -16,6 +18,7 @@ apron = "apron.cli:main"
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
 ]

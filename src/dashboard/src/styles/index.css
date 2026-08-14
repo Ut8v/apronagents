@@ -1,3 +1,24 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-base text-body font-sans antialiased;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.32 0.012 255);
+    border-radius: 8px;
+    border: 3px solid oklch(0.19 0.01 255);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

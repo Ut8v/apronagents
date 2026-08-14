@@ -74,6 +74,20 @@ def test_failed_tests_are_visible():
     assert store.issue("i1").state is IssueState.TEST_FAILED
 
 
+def test_merged_is_terminal_even_for_stray_late_events():
+    store = StateStore()
+    store.record(make_queued())
+    store.record(MergeStarted(issue_id="i1", branch="issue/i1"))
+    store.record(MergeSucceeded(issue_id="i1", branch="issue/i1"))
+
+    # A duplicate approval or send-back arriving after the merge must not
+    # walk the projection backwards.
+    store.record(ReviewApproved(issue_id="i1"))
+    assert store.issue("i1").state is IssueState.MERGED
+    store.record(ChangesRequested(issue_id="i1", reason="too late"))
+    assert store.issue("i1").state is IssueState.MERGED
+
+
 def test_events_since_returns_journal_in_order():
     store = StateStore()
     first = make_queued("i1")
