@@ -13,7 +13,16 @@ import asyncio
 
 from apron.agents.definition import AgentDefinition
 from apron.bus.bus import EventBus
-from apron.bus.events import IssueQueued, MergeSucceeded, TaskPlanned, TaskReceived
+from apron.bus.events import (
+    ChangesRequested,
+    IssueQueued,
+    MergeConflictDetected,
+    MergeSucceeded,
+    TaskCompleted,
+    TaskPlanned,
+    TaskReceived,
+    TestsFailed,
+)
 from apron.orchestrator.assigner import Assigner
 from apron.orchestrator.issue_graph import IssueGraph
 from apron.orchestrator.planner import PlannedIssue, Planner, StaticPlanner
@@ -45,10 +54,15 @@ class Orchestrator:
         self.assigner = assigner
         self.bus = bus
         self._work_tasks: set[asyncio.Task] = set()
+        self._task_id: str | None = None
         bus.subscribe(self._on_task_received, TaskReceived)
         bus.subscribe(self._on_merge_succeeded, MergeSucceeded)
+        bus.subscribe(
+            self._on_sent_back, (ChangesRequested, MergeConflictDetected, TestsFailed)
+        )
 
     async def _on_task_received(self, event: TaskReceived) -> None:
+        self._task_id = event.task_id
         issues = self.planner.plan(event.task_id, event.prompt)
         for issue in issues:
             self.graph.add(issue)
@@ -71,7 +85,17 @@ class Orchestrator:
 
     async def _on_merge_succeeded(self, event: MergeSucceeded) -> None:
         self.graph.mark_merged(event.issue_id)
+        if self.graph.all_merged() and self._task_id is not None:
+            await self.bus.publish(TaskCompleted(task_id=self._task_id))
         self.dispatch()
+
+    async def _on_sent_back(
+        self, event: ChangesRequested | MergeConflictDetected | TestsFailed
+    ) -> None:
+        """A review rejection, conflict, or red test run: rework the issue."""
+        if event.issue_id in self.graph:
+            self.graph.release(event.issue_id)
+            self.dispatch()
 
     def dispatch(self) -> None:
         """Hand out whatever is ready; keep the running tasks alive."""

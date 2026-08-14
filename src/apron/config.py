@@ -37,6 +37,9 @@ class Settings:
     # None means an in-memory store (fine for one run; the sandbox is
     # disposable anyway). Set a path to keep state across a crash.
     db_path: Path | None = None
+    # Shell command the merge controller runs against every candidate merge;
+    # None accepts every candidate (the review gate still applies).
+    test_command: str | None = None
     open_browser: bool = True
     user_dir: Path = field(default_factory=lambda: Path.home())
 
@@ -66,12 +69,13 @@ def load_settings(
     mode: str | None = None,
     port: int | None = None,
     worker_count: int | None = None,
+    test_command: str | None = None,
     open_browser: bool | None = None,
 ) -> Settings:
     """Build settings from explicit arguments, then environment, then defaults.
 
-    Environment variables (``APRON_MODE``, ``APRON_PORT``, ``APRON_WORKERS``)
-    fill in anything the caller left unset.
+    Environment variables (``APRON_MODE``, ``APRON_PORT``, ``APRON_WORKERS``,
+    ``APRON_TEST_COMMAND``) fill in anything the caller left unset.
     """
     env = os.environ
     resolved_mode = mode or env.get("APRON_MODE", Mode.SUPERVISED)
@@ -80,5 +84,6 @@ def load_settings(
         mode=Mode(resolved_mode),
         worker_count=worker_count or int(env.get("APRON_WORKERS", DEFAULT_WORKER_COUNT)),
         port=port or int(env.get("APRON_PORT", DEFAULT_PORT)),
+        test_command=test_command or env.get("APRON_TEST_COMMAND"),
         open_browser=True if open_browser is None else open_browser,
     )

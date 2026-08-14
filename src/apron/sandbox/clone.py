@@ -52,8 +52,11 @@ class WorkerClone:
         self.run("commit", "-m", message)
         return self.run("rev-parse", "HEAD").stdout.strip()
 
-    def push_branch(self, branch: str) -> None:
-        self.run("push", "origin", branch)
+    def push_branch(self, branch: str, force: bool = False) -> None:
+        if force:
+            self.run("push", "--force", "origin", branch)
+        else:
+            self.run("push", "origin", branch)
 
     def update_main(self) -> None:
         """Bring local main up to date with the bare repo."""

@@ -65,7 +65,9 @@ class Worker:
 
             result = await self.runner.run_issue(self.definition, issue, clone.path)
             clone.commit_all(issue.title)
-            clone.push_branch(branch)
+            # Force is safe here: each branch has exactly one owner, and a
+            # rework pass rebuilds it from fresh main with new history.
+            clone.push_branch(branch, force=True)
             await self.bus.publish(
                 ReviewOpened(
                     issue_id=issue.issue_id,
@@ -83,9 +85,14 @@ class Worker:
         return self._clone
 
     def _start_branch(self, clone: WorkerClone, branch: str) -> None:
-        """Branch off up-to-date main; reuse the branch on a rework pass."""
+        """Branch off up-to-date main.
+
+        On a rework pass (send-back, conflict, or failed tests) the branch
+        already exists: it is rebuilt from the current main so the agent
+        redoes the issue on top of everything merged since."""
         clone.update_main()
         try:
             clone.create_branch(branch)
         except GitError:
             clone.switch(branch)
+            clone.run("reset", "--hard", "main")
