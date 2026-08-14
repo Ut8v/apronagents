@@ -25,8 +25,12 @@ export function parseDiff(diff: string): FileGroup[] {
     if (line.startsWith("diff --git ")) {
       group = { path: line.split(" b/").pop() ?? "?", header: "", plus: 0, minus: 0, lines: [] };
       groups.push(group);
-    } else if (!group || SKIP.test(line)) {
-      if (line.startsWith("+++ b/") && group) group.path = line.slice(6);
+    } else if (!group) {
+      continue;
+    } else if (line.startsWith("+++ ")) {
+      if (line.startsWith("+++ b/")) group.path = line.slice(6);
+    } else if (SKIP.test(line)) {
+      continue;
     } else if (line.startsWith("@@")) {
       const match = /@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
       oldLine = match ? parseInt(match[1], 10) : 0;
