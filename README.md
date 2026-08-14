@@ -63,6 +63,13 @@ defaults, discovers your existing `.claude/agents/` definitions read-only,
 and writes any edits you make in the dashboard to a `.apron/` overlay that
 hot-reloads on the next issue.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) — setup, workflow, and the invariants
+every change must respect. CI runs the test suite (Python 3.11–3.13), the
+dashboard typecheck/build, and a wheel install smoke test on every push and
+pull request.
+
 ## License
 
-MIT
+[MIT](LICENSE)
