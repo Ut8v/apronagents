@@ -49,5 +49,8 @@ def _assert_writable(target: Path) -> None:
     resolved = target.resolve()
     if ".claude" in resolved.parts:
         raise OverlayError(f"refusing to write into .claude: {resolved}")
-    if resolved.is_relative_to(SHIPPED_DEFAULTS_DIR.resolve()):
-        raise OverlayError(f"refusing to write into shipped defaults: {resolved}")
+    package_dir = SHIPPED_DEFAULTS_DIR.resolve().parents[1]
+    if resolved.is_relative_to(package_dir):
+        raise OverlayError(
+            f"refusing to write into the installed package (shipped defaults): {resolved}"
+        )
