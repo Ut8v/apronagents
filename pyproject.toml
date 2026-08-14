@@ -28,3 +28,6 @@ packages = ["src/apron"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# All tests are plain functions; without this, pytest tries to collect
+# imported event classes like TestsFailed as test classes.
+python_classes = []
