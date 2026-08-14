@@ -116,13 +116,17 @@ def test_environment_is_isolated(sandbox: GitOps):
     assert "GIT_CONFIG_NOSYSTEM" in env
 
 
-def test_subprocess_is_confined_to_git_ops():
-    """No other module in the package may shell out; the audit lives here only."""
+def test_subprocess_is_confined_to_audited_modules():
+    """Only two modules may spawn processes: the audited git wrapper, and the
+    tester that runs the project's own test command inside the sandbox."""
     package_root = Path(__file__).parents[2] / "src" / "apron"
+    allowed = {
+        package_root / "sandbox" / "git_ops.py",
+        package_root / "merge" / "tester.py",
+    }
     offenders = [
         path.relative_to(package_root)
         for path in package_root.rglob("*.py")
-        if "subprocess" in path.read_text()
-        and path != package_root / "sandbox" / "git_ops.py"
+        if "subprocess" in path.read_text() and path not in allowed
     ]
     assert offenders == []
