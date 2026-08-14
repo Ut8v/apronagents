@@ -1,0 +1,13 @@
+#!/bin/sh
+# Bootstrap for fresh clones: ensure the environment exists with uv, then
+# hand every argument straight to the apron entry point.
+set -e
+
+if ! command -v uv >/dev/null 2>&1; then
+    echo "error: uv is required (https://docs.astral.sh/uv/getting-started/installation/)" >&2
+    exit 1
+fi
+
+cd "$(dirname "$0")"
+uv sync --quiet
+exec uv run apron "$@"
