@@ -8,6 +8,7 @@ license = { text = "MIT" }
 authors = [{ name = "Utshav Khatiwada" }]
 keywords = ["agents", "orchestration", "git", "code-review"]
 dependencies = [
+    "anthropic>=0.122.0",
     "fastapi>=0.141.1",
     "pyyaml>=6.0.3",
     "uvicorn[standard]>=0.52.3",
