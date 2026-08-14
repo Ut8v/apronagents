@@ -15,6 +15,7 @@ htmlcov/
 # Node / dashboard
 node_modules/
 src/dashboard/dist/
+src/apron/server/static/
 
 # Runtime state
 .apron/state.sqlite

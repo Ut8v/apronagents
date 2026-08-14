@@ -45,17 +45,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
-# The built dashboard is gitignored but must ship; hatchling only picks up
-# ignored files when they are declared as build artifacts.
-artifacts = ["src/dashboard/dist"]
+# Release builds copy the built dashboard to src/apron/server/static
+# (`./run release` does this). The directory is gitignored, so it must be
+# declared as an artifact to ship; when absent, builds still succeed and the
+# server falls back to src/dashboard/dist for repo checkouts.
+artifacts = ["src/apron/server/static"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/apron"]
-
-# Ship the built dashboard inside the package so `pip install apronagents`
-# serves it. Run `npm run build` in src/dashboard before building a release.
-[tool.hatch.build.targets.wheel.force-include]
-"src/dashboard/dist" = "apron/server/static"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

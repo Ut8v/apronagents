@@ -75,12 +75,8 @@ jobs:
           python-version: "3.12"
           enable-cache: true
 
-      - name: Build dashboard
-        run: npm ci && npm run build
-        working-directory: src/dashboard
-
-      - name: Build wheel
-        run: uv build
+      - name: Build release wheel
+        run: ./run release
 
       - name: Install wheel and smoke-test the entry point
         run: |

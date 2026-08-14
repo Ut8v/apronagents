@@ -17,7 +17,7 @@ def _dashboard_dist() -> Path:
     """The built dashboard: bundled into the wheel as ``server/static`` for
     installed copies, or ``src/dashboard/dist`` in a repo checkout."""
     packaged = Path(__file__).parent / "static"
-    if packaged.is_dir():
+    if (packaged / "index.html").is_file():
         return packaged
     return Path(__file__).parents[2] / "dashboard" / "dist"
 

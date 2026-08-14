@@ -1,6 +1,9 @@
 #!/bin/sh
 # Bootstrap for fresh clones: ensure the environment exists with uv, then
 # hand every argument straight to the apron entry point.
+#
+# `./run release` builds a distributable wheel: dashboard build, copy into
+# the package, then `uv build`.
 set -e
 
 if ! command -v uv >/dev/null 2>&1; then
@@ -9,5 +12,18 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 cd "$(dirname "$0")"
+
+if [ "$1" = "release" ]; then
+    (cd src/dashboard && npm ci && npm run build)
+    rm -rf src/apron/server/static
+    cp -R src/dashboard/dist src/apron/server/static
+    uv build
+    # Leave the checkout clean so dev servers keep serving the live
+    # src/dashboard/dist instead of this frozen copy.
+    rm -rf src/apron/server/static
+    echo "release artifacts in dist/"
+    exit 0
+fi
+
 uv sync --quiet
 exec uv run apron "$@"
