@@ -32,6 +32,21 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--port", type=int, default=None, help="dashboard port")
     start.add_argument("--workers", type=int, default=None, help="number of worker agents")
     start.add_argument(
+        "--runner",
+        choices=["auto", "claude-code", "codex", "api", "demo"],
+        default=None,
+        help=(
+            "agent backend: the claude CLI (any Claude plan), the codex CLI "
+            "(ChatGPT plan), the Anthropic API, or a no-account demo "
+            "(default: auto-detect)"
+        ),
+    )
+    start.add_argument(
+        "--test-command",
+        default=None,
+        help="shell command run against every candidate merge (e.g. 'pytest -q')",
+    )
+    start.add_argument(
         "--dir",
         type=Path,
         default=None,
@@ -55,6 +70,8 @@ def main(argv: list[str] | None = None) -> int:
             mode=args.mode,
             port=args.port,
             worker_count=args.workers,
+            runner=args.runner,
+            test_command=args.test_command,
             open_browser=not args.no_browser,
         )
         launch(settings)

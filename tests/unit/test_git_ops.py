@@ -117,12 +117,14 @@ def test_environment_is_isolated(sandbox: GitOps):
 
 
 def test_subprocess_is_confined_to_audited_modules():
-    """Only two modules may spawn processes: the audited git wrapper, and the
-    tester that runs the project's own test command inside the sandbox."""
+    """Only three modules may spawn processes: the audited git wrapper, the
+    tester that runs the project's own test command, and the CLI runner that
+    drives the user's chosen agent CLI. None of them runs unaudited git."""
     package_root = Path(__file__).parents[2] / "src" / "apron"
     allowed = {
         package_root / "sandbox" / "git_ops.py",
         package_root / "merge" / "tester.py",
+        package_root / "workers" / "cli_runner.py",
     }
     offenders = [
         path.relative_to(package_root)

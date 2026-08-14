@@ -40,6 +40,14 @@ class Settings:
     # Shell command the merge controller runs against every candidate merge;
     # None accepts every candidate (the review gate still applies).
     test_command: str | None = None
+    # Which execution backend powers the agents:
+    #   auto        - claude CLI if installed, else codex CLI, else the API
+    #                 if credentials resolve, else the demo loop
+    #   claude-code - the `claude` CLI (any Claude plan, no API key needed)
+    #   codex       - the `codex` CLI (ChatGPT plan or OpenAI key)
+    #   api         - the Anthropic API directly
+    #   demo        - fake agents, for trying the tool without any account
+    runner: str = "auto"
     open_browser: bool = True
     user_dir: Path = field(default_factory=lambda: Path.home())
 
@@ -70,12 +78,14 @@ def load_settings(
     port: int | None = None,
     worker_count: int | None = None,
     test_command: str | None = None,
+    runner: str | None = None,
     open_browser: bool | None = None,
 ) -> Settings:
     """Build settings from explicit arguments, then environment, then defaults.
 
     Environment variables (``APRON_MODE``, ``APRON_PORT``, ``APRON_WORKERS``,
-    ``APRON_TEST_COMMAND``) fill in anything the caller left unset.
+    ``APRON_TEST_COMMAND``, ``APRON_RUNNER``) fill in anything the caller
+    left unset.
     """
     env = os.environ
     resolved_mode = mode or env.get("APRON_MODE", Mode.SUPERVISED)
@@ -85,5 +95,6 @@ def load_settings(
         worker_count=worker_count or int(env.get("APRON_WORKERS", DEFAULT_WORKER_COUNT)),
         port=port or int(env.get("APRON_PORT", DEFAULT_PORT)),
         test_command=test_command or env.get("APRON_TEST_COMMAND"),
+        runner=runner or env.get("APRON_RUNNER", "auto"),
         open_browser=True if open_browser is None else open_browser,
     )

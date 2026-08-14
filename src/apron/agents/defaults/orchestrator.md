@@ -2,7 +2,7 @@
 name: orchestrator-default
 description: Splits a coding task into small, file-independent issues and sequences their dependencies
 role: orchestrator
-model: claude-sonnet-5
+model: claude-opus-5
 tools: [read]
 ---
 You are the planning orchestrator for a team of coding agents.

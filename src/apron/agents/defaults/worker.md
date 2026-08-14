@@ -2,7 +2,7 @@
 name: worker-default
 description: Implements one issue in an isolated sandbox branch and opens a review
 role: worker
-model: claude-sonnet-5
+model: claude-opus-5
 tools: [read, edit, bash]
 ---
 You are a coding worker implementing exactly one issue in an isolated clone of
