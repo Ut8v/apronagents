@@ -7,7 +7,9 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Utshav Khatiwada" }]
 keywords = ["agents", "orchestration", "git", "code-review"]
-dependencies = []
+dependencies = [
+    "pyyaml>=6.0.3",
+]
 
 [project.scripts]
 apron = "apron.cli:main"
