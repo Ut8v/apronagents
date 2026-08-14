@@ -131,10 +131,12 @@ class StateStore:
     def _transition(self, event: Event, state: IssueState, **columns: str) -> None:
         issue_id: str = getattr(event, "issue_id")
         assignments = "".join(f"{name} = ?, " for name in columns)
+        # Merged is terminal: a stray late event (e.g. a duplicate approval
+        # arriving after the merge) must not walk the projection backwards.
         self._conn.execute(
             f"UPDATE issues SET {assignments}state = ?, updated_at = ?"
-            " WHERE issue_id = ?",
-            (*columns.values(), state, event.timestamp, issue_id),
+            " WHERE issue_id = ? AND state != ?",
+            (*columns.values(), state, event.timestamp, issue_id, IssueState.MERGED),
         )
 
     # --- reading -------------------------------------------------------------
