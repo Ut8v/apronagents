@@ -7,12 +7,28 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Utshav Khatiwada" }]
 keywords = ["agents", "orchestration", "git", "code-review"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+]
 dependencies = [
     "anthropic>=0.122.0",
     "fastapi>=0.141.1",
     "pyyaml>=6.0.3",
     "uvicorn[standard]>=0.52.3",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Ut8v/apronagents"
+Repository = "https://github.com/Ut8v/apronagents"
+Issues = "https://github.com/Ut8v/apronagents/issues"
 
 [project.scripts]
 apron = "apron.cli:main"
@@ -28,8 +44,18 @@ dev = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+# The built dashboard is gitignored but must ship; hatchling only picks up
+# ignored files when they are declared as build artifacts.
+artifacts = ["src/dashboard/dist"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/apron"]
+
+# Ship the built dashboard inside the package so `pip install apronagents`
+# serves it. Run `npm run build` in src/dashboard before building a release.
+[tool.hatch.build.targets.wheel.force-include]
+"src/dashboard/dist" = "apron/server/static"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

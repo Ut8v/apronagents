@@ -59,8 +59,9 @@ class Launcher:
         self.workers: list[Worker] = []
         self.controller: MergeController | None = None
         self._watcher: AgentWatcher | None = None
+        self._watcher_task: asyncio.Task | None = None
         self._server: uvicorn.Server | None = None
-        self._tasks: list[asyncio.Task] = []
+        self._server_task: asyncio.Task | None = None
         self._done = asyncio.Event()
         self.handed_off_files: list[str] = []
 
@@ -100,7 +101,7 @@ class Launcher:
         self._watcher = AgentWatcher(
             self._agent_directories(), self._on_agents_changed
         )
-        self._tasks.append(asyncio.create_task(self._watcher.run()))
+        self._watcher_task = asyncio.create_task(self._watcher.run())
         await self._start_server()
         log.info(
             "apron ready: mode=%s, runner=%s, %d workers, dashboard on http://%s:%d",
@@ -167,11 +168,11 @@ class Launcher:
             log_level="warning",
         )
         self._server = uvicorn.Server(config)
-        self._tasks.append(asyncio.create_task(self._server.serve()))
-        while not self._server.started and not self._tasks[-1].done():
+        self._server_task = asyncio.create_task(self._server.serve())
+        while not self._server.started and not self._server_task.done():
             await asyncio.sleep(0.05)
-        if self._tasks[-1].done():
-            self._tasks[-1].result()  # surface the startup error
+        if self._server_task.done():
+            self._server_task.result()  # surface the startup error
 
     # --- agents hot reload ---------------------------------------------------
 
@@ -211,17 +212,22 @@ class Launcher:
         await self._done.wait()
 
     async def stop(self) -> None:
-        if self._watcher:
+        if self._watcher_task:
             self._watcher.stop()
-        if self._server:
-            self._server.should_exit = True
-        for task in self._tasks:
-            task.cancel()
-        for task in self._tasks:
+            self._watcher_task.cancel()
             try:
-                await task
-            except (asyncio.CancelledError, Exception):
+                await self._watcher_task
+            except asyncio.CancelledError:
                 pass
+        if self._server_task:
+            # Ask uvicorn to exit and let its lifespan finish; cancelling the
+            # task instead interrupts the shutdown mid-await and uvicorn logs
+            # a CancelledError traceback.
+            self._server.should_exit = True
+            try:
+                await asyncio.wait_for(self._server_task, timeout=5)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                self._server_task.cancel()
         if self.controller:
             await self.controller.stop()
         if self.repo:

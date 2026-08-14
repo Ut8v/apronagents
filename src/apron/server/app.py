@@ -12,7 +12,17 @@ from fastapi.staticfiles import StaticFiles
 from apron.server.routes import ServerContext, build_router
 from apron.server.websocket import register_websocket
 
-DASHBOARD_DIST = Path(__file__).parents[2] / "dashboard" / "dist"
+
+def _dashboard_dist() -> Path:
+    """The built dashboard: bundled into the wheel as ``server/static`` for
+    installed copies, or ``src/dashboard/dist`` in a repo checkout."""
+    packaged = Path(__file__).parent / "static"
+    if packaged.is_dir():
+        return packaged
+    return Path(__file__).parents[2] / "dashboard" / "dist"
+
+
+DASHBOARD_DIST = _dashboard_dist()
 
 # The Vite dev server, for dashboard development against a live backend.
 _DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
