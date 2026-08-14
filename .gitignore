@@ -1,0 +1,25 @@
+CLAUDE.md
+Prompts.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / dashboard
+node_modules/
+src/dashboard/dist/
+
+# Runtime state
+.apron/state.sqlite
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
