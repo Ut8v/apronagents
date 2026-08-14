@@ -43,7 +43,7 @@ _BLOCKED_SUBCOMMANDS = {"config", "submodule", "daemon", "credential", "instaweb
 _REMOTE_SUBCOMMANDS = {"push", "fetch", "pull", "ls-remote"}
 
 # Options that would execute arbitrary commands or re-point git elsewhere.
-_BLOCKED_OPTIONS = {"-c", "-C"}
+_BLOCKED_OPTIONS = {"-C"}
 _BLOCKED_OPTION_PREFIXES = (
     "--upload-pack",
     "--receive-pack",
@@ -52,6 +52,10 @@ _BLOCKED_OPTION_PREFIXES = (
     "--git-dir",
     "--work-tree",
 )
+# Inline config can rewrite where a "remote" points (url.*.insteadOf), so it
+# is rejected on any subcommand that talks to one. Elsewhere ``-c`` is a
+# harmless subcommand flag (``switch -c``) and stays allowed.
+_BLOCKED_NETWORK_OPTIONS = {"-c", "--config"}
 
 # What the audited environment allows a remote listing to do: read, only.
 _ALLOWED_REMOTE_QUERIES = ("", "-v", "--verbose", "show", "get-url")
@@ -116,6 +120,12 @@ class GitOps:
         subcommand = args[0]
         if subcommand in _BLOCKED_SUBCOMMANDS:
             raise RemoteAccessViolation(f"subcommand rejected: {subcommand!r}")
+        if subcommand == "clone" or subcommand in _REMOTE_SUBCOMMANDS:
+            for arg in args[1:]:
+                if arg in _BLOCKED_NETWORK_OPTIONS or arg.startswith("--config="):
+                    raise RemoteAccessViolation(
+                        f"inline config rejected on {subcommand!r}: {arg!r}"
+                    )
         if subcommand == "clone":
             self._audit_clone(args, cwd)
         elif subcommand in _REMOTE_SUBCOMMANDS:
