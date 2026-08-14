@@ -31,18 +31,37 @@ before it reaches your real remote.
 
 This sets up the environment with [uv](https://docs.astral.sh/uv/), boots the
 orchestrator, workers, merge controller, and dashboard server, and opens the
-dashboard in your browser.
+dashboard in your browser. Enter a task, review the diffs, and approve merges
+chunk by chunk; when everything is green the result lands in your working
+directory and the tool stops.
 
 Once the environment exists you can also launch directly:
 
 ```sh
-apron start
+apron start [--mode supervised|autonomous] [--runner ...] [--test-command 'pytest -q']
 ```
 
-## Status
+## Agent backends
 
-Early development. The event bus and state store are in place; the sandbox git
-layer, agents, merge controller, and dashboard are being built out.
+Workers run on whatever you already use — pick with `--runner` or let
+auto-detection choose:
+
+| Runner | Powered by | Needs |
+|---|---|---|
+| `claude-code` | The `claude` CLI, headless | Any Claude plan (Pro/Max) or API login — whatever Claude Code already uses |
+| `codex` | The `codex` CLI, headless | A ChatGPT plan or OpenAI key — whatever Codex already uses |
+| `api` | The Anthropic API directly | `ANTHROPIC_API_KEY` or an `ant auth login` profile |
+| `demo` | Fake in-process agents | Nothing — try the whole flow with no account |
+
+Any other headless agent CLI can be plugged in as a `CliProfile`
+(`src/apron/workers/cli_runner.py`).
+
+## Customizing agents
+
+Agent behavior lives in editable markdown definitions, not code. Apron ships
+defaults, discovers your existing `.claude/agents/` definitions read-only,
+and writes any edits you make in the dashboard to a `.apron/` overlay that
+hot-reloads on the next issue.
 
 ## License
 
