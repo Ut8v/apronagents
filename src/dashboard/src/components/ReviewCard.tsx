@@ -1,14 +1,25 @@
 import { useEffect, useState } from "react";
 import { api, Issue, IssueDiff } from "../api/client";
-import { StateChip } from "./Badges";
+import { FileStatusSquare, StateChip } from "./Badges";
 import DiffView from "./DiffView";
 
 interface Props {
   issue: Issue;
+  armed: boolean;
+  onArm: () => void;
+  onDisarm: () => void;
   onAction: () => void;
 }
 
-export default function ReviewCard({ issue, onAction }: Props) {
+function heldFor(updatedAt: number): string {
+  const seconds = Math.max(0, Math.floor(Date.now() / 1000 - updatedAt));
+  const minutes = Math.floor(seconds / 60);
+  return minutes > 0 ? `held ${minutes}m ${seconds % 60}s` : `held ${seconds}s`;
+}
+
+const MONO_BTN = "font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-[140ms] rounded-[7px]";
+
+export default function ReviewCard({ issue, armed, onArm, onDisarm, onAction }: Props) {
   const [diff, setDiff] = useState<IssueDiff | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -21,6 +32,7 @@ export default function ReviewCard({ issue, onAction }: Props) {
     setBusy(true);
     try {
       await action();
+      onDisarm();
       onAction();
     } finally {
       setBusy(false);
@@ -28,58 +40,107 @@ export default function ReviewCard({ issue, onAction }: Props) {
   };
 
   return (
-    <div className="rounded-lg border border-amber-900/60 bg-slate-900 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-medium">{issue.title}</h3>
-          <p className="mt-0.5 text-sm text-slate-400">{issue.description}</p>
-          <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-            {issue.branch && <span className="font-mono">{issue.branch}</span>}
-            {issue.worker_id && <span>by {issue.worker_id}</span>}
+    <article
+      className="animate-in-card overflow-hidden rounded-xl bg-card"
+      style={{
+        border: "1px solid oklch(0.32 0.02 78 / 0.6)",
+        boxShadow:
+          "inset 0 1px 0 oklch(0.78 0.11 78 / 0.25), 0 8px 24px oklch(0.1 0.01 255 / 0.5)",
+      }}
+    >
+      <div
+        className="flex items-start gap-4 border-b border-line px-4 py-3.5"
+        style={{ background: "linear-gradient(oklch(0.215 0.014 255), oklch(0.2 0.012 255))" }}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2.5">
+            <StateChip state={issue.state} />
+            <h3 className="text-[15px] font-[620] tracking-[-0.01em] text-ink">
+              {issue.title}
+            </h3>
           </div>
+          {issue.description && (
+            <p className="mt-[7px] max-w-[72ch] text-[12.5px] text-muted" style={{ textWrap: "pretty" }}>
+              {issue.description}
+            </p>
+          )}
         </div>
-        <StateChip state={issue.state} />
+        <div className="flex flex-col items-end gap-1 whitespace-nowrap font-mono text-[11px]">
+          {issue.branch && <span className="text-[oklch(0.72_0.05_205)]">{issue.branch}</span>}
+          {issue.worker_id && (
+            <span className="text-[oklch(0.55_0.012_255)]">by {issue.worker_id}</span>
+          )}
+          <span className="text-[oklch(0.45_0.012_255)]">{heldFor(issue.updated_at)}</span>
+        </div>
       </div>
 
-      {diff && (
-        <div className="mt-3">
-          <div className="mb-2 flex flex-wrap gap-2">
-            {diff.files.map((file) => (
-              <span
-                key={file.path}
-                className="rounded bg-slate-800 px-2 py-0.5 font-mono text-xs text-slate-300"
-              >
-                <span className="mr-1 text-sky-400">{file.status}</span>
-                {file.path}
-              </span>
-            ))}
-          </div>
-          <DiffView diff={diff.diff} />
+      {diff && diff.files.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 border-b border-[oklch(0.25_0.012_255)] px-4 py-2.5">
+          {diff.files.map((file) => (
+            <span
+              key={file.path}
+              className="flex items-center gap-1.5 rounded-md border border-[oklch(0.3_0.013_255)] bg-[oklch(0.24_0.012_255)] py-[3px] pl-1.5 pr-2.5 font-mono text-[11px] text-[oklch(0.78_0.01_255)]"
+            >
+              <FileStatusSquare status={file.status} />
+              {file.path}
+            </span>
+          ))}
         </div>
       )}
+      {diff && <DiffView diff={diff.diff} />}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          disabled={busy}
-          onClick={() => act(() => api.approve(issue.issue_id))}
-          className="rounded bg-emerald-700 px-3 py-1.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50"
-        >
-          Approve &amp; merge
-        </button>
-        <input
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="what should change?"
-          className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm"
-        />
-        <button
-          disabled={busy}
-          onClick={() => act(() => api.sendBack(issue.issue_id, reason))}
-          className="rounded bg-orange-800 px-3 py-1.5 text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
-        >
-          Send back
-        </button>
+      <div className="flex min-h-[62px] flex-wrap items-center gap-3.5 border-t border-line bg-raised px-4 py-3">
+        <div className="flex min-w-[260px] flex-[1_1_300px] items-center gap-2">
+          <input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason to send back…"
+            className="h-[34px] min-w-0 flex-1 rounded-[7px] border border-[oklch(0.3_0.014_255)] bg-rail px-[11px] text-[12.5px] outline-none transition-colors focus:border-[oklch(0.62_0.1_45)] focus:shadow-[0_0_0_3px_oklch(0.62_0.1_45/0.14)]"
+          />
+          <button
+            disabled={busy}
+            onClick={() => {
+              const value = reason;
+              setReason("");
+              act(() => api.sendBack(issue.issue_id, value));
+            }}
+            className={`${MONO_BTN} h-[34px] flex-none border border-[oklch(0.36_0.05_45)] bg-transparent px-3.5 text-[oklch(0.78_0.1_45)] hover:bg-[oklch(0.3_0.05_45/0.4)] disabled:opacity-50`}
+          >
+            send back
+          </button>
+        </div>
+        <div className="flex h-[34px] flex-[0_0_400px] items-center justify-end">
+          {!armed ? (
+            <button
+              disabled={busy}
+              onClick={onArm}
+              className={`${MONO_BTN} h-[34px] w-[158px] border border-[oklch(0.42_0.07_152)] bg-[oklch(0.28_0.05_152)] text-[oklch(0.88_0.09_152)] hover:bg-[oklch(0.36_0.07_152)] disabled:opacity-50`}
+            >
+              approve &amp; merge
+            </button>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.1em] text-[oklch(0.7_0.09_152)]">
+                cleared for merge?
+              </span>
+              <button
+                disabled={busy}
+                onClick={() => act(() => api.approve(issue.issue_id))}
+                className={`${MONO_BTN} h-[34px] w-[158px] border border-[oklch(0.62_0.11_152)] bg-[oklch(0.5_0.11_152)] text-[oklch(0.98_0.02_152)] hover:bg-[oklch(0.57_0.12_152)] disabled:opacity-50`}
+              >
+                confirm merge
+              </button>
+              <button
+                disabled={busy}
+                onClick={onDisarm}
+                className={`${MONO_BTN} h-[34px] w-[94px] border border-[oklch(0.32_0.013_255)] bg-[oklch(0.22_0.012_255)] text-[oklch(0.7_0.012_255)] hover:bg-[oklch(0.26_0.013_255)]`}
+              >
+                cancel
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </article>
   );
 }
