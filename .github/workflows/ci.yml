@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Run tests
+        run: uv run pytest -q
+
+  dashboard:
+    name: Dashboard (typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+  package:
+    name: Package (wheel builds and installs)
+    runs-on: ubuntu-latest
+    needs: [tests, dashboard]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/dashboard/package-lock.json
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Build release wheel
+        run: ./run release
+
+      - name: Install wheel and smoke-test the entry point
+        run: |
+          uv venv smoke
+          VIRTUAL_ENV=smoke uv pip install dist/*.whl
+          smoke/bin/apron --version
+          smoke/bin/python -c "from importlib.resources import files; assert (files('apron') / 'server/static/index.html').is_file(), 'dashboard missing from wheel'"
