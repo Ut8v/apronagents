@@ -46,6 +46,12 @@ export interface AgentInfo {
   overridden: boolean;
 }
 
+export interface WorkspaceFile {
+  path: string;
+  merged: string | null;   // A / M / D since the seed, via merged work
+  editing: string[];       // issue ids with in-flight changes to this file
+}
+
 export interface DiffFile {
   status: string;
   path: string;
@@ -83,6 +89,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ prompt }),
     }),
+  getWorkspace: () => request<{ files: WorkspaceFile[] }>("/api/workspace"),
   getDiff: (issueId: string) => request<IssueDiff>(`/api/issues/${issueId}/diff`),
   approve: (issueId: string) =>
     request(`/api/issues/${issueId}/approve`, { method: "POST" }),
