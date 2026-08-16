@@ -161,3 +161,27 @@ def test_websocket_sends_snapshot_then_live_events(client, ctx):
         message = websocket.receive_json()
         assert message["type"] == "event"
         assert message["event"]["kind"] == "TaskReceived"
+
+
+def test_workspace_reports_merged_and_inflight_changes(client, ctx):
+    # Seeded state: nothing merged, nothing in flight.
+    baseline = client.get("/api/workspace").json()["files"]
+    assert all(f["merged"] is None and f["editing"] == [] for f in baseline)
+
+    # An in-flight branch touching one file.
+    clone = WorkerClone.create(ctx.repo, "worker-1")
+    clone.create_branch("issue/i1")
+    (clone.path / "feature.py").write_text("VALUE = 1\n")
+    clone.commit_all("Add feature")
+    clone.push_branch("issue/i1")
+    files = {f["path"]: f for f in client.get("/api/workspace").json()["files"]}
+    assert files["feature.py"]["editing"] == ["i1"]
+    assert files["feature.py"]["merged"] is None
+
+    # Merge it: the file flips from in-flight to merged (A), branch drops out.
+    clone.update_main()
+    clone.run("merge", "--no-ff", "origin/issue/i1", "-m", "Merge issue/i1")
+    clone.push_branch("main")
+    files = {f["path"]: f for f in client.get("/api/workspace").json()["files"]}
+    assert files["feature.py"]["merged"] == "A"
+    assert files["feature.py"]["editing"] == []

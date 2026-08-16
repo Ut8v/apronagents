@@ -119,6 +119,43 @@ def build_router(ctx: ServerContext) -> APIRouter:
         await ctx.bus.publish(TaskReceived(task_id=task_id, prompt=body.prompt))
         return {"task_id": task_id}
 
+    @router.get("/workspace")
+    async def workspace() -> dict:
+        """The project tree with change markers: what merged work has
+        changed since the seed, and which files each in-flight issue
+        branch is touching right now."""
+        git, bare = ctx.repo.git, ctx.repo.bare_path
+        root = git.run(
+            "rev-list", "--max-parents=0", "main", cwd=bare
+        ).stdout.split()[0]
+        merged: dict[str, str] = {}
+        for line in git.run(
+            "diff", "--name-status", f"{root}..main", cwd=bare
+        ).stdout.splitlines():
+            if line:
+                merged[line.split("\t")[-1]] = line.split("\t")[0][0]
+        editing: dict[str, list[str]] = {}
+        for branch in ctx.repo.branches():
+            if branch == "main":
+                continue
+            issue_id = branch.removeprefix("issue/")
+            diff = git.run(
+                "diff", "--name-status", f"main...{branch}", cwd=bare, check=False
+            )
+            for line in diff.stdout.splitlines():
+                if line:
+                    editing.setdefault(line.split("\t")[-1], []).append(issue_id)
+        tracked = git.run(
+            "ls-tree", "-r", "--name-only", "main", cwd=bare
+        ).stdout.splitlines()
+        paths = sorted(set(tracked) | set(merged) | set(editing))
+        return {
+            "files": [
+                {"path": p, "merged": merged.get(p), "editing": editing.get(p, [])}
+                for p in paths
+            ]
+        }
+
     @router.get("/issues/{issue_id}/diff")
     async def get_diff(issue_id: str) -> dict:
         issue = ctx.store.issue(issue_id)

@@ -7,6 +7,7 @@ import LiveFeed from "./components/LiveFeed";
 import MergeQueue from "./components/MergeQueue";
 import ReviewCard from "./components/ReviewCard";
 import TaskBar from "./components/TaskBar";
+import WorkspaceTree from "./components/WorkspaceTree";
 
 type View = "board" | "agents";
 
@@ -14,6 +15,7 @@ export default function App() {
   const { state, events, connected, refresh } = useLiveFeed();
   const [view, setView] = useState<View>("board");
   const [armedIssueId, setArmedIssueId] = useState<string | null>(null);
+  const [showTree, setShowTree] = useState(true);
 
   const reviews = state?.issues.filter((i) => i.state === "in_review") ?? [];
 
@@ -96,7 +98,27 @@ export default function App() {
       </header>
 
       {view === "board" ? (
-        <div className="grid min-h-[calc(100vh-56px)] gap-px bg-line lg:grid-cols-[minmax(0,1fr)_384px]">
+        <div
+          className={`grid min-h-[calc(100vh-56px)] gap-px bg-line ${
+            showTree
+              ? "lg:grid-cols-[232px_minmax(0,1fr)_384px]"
+              : "lg:grid-cols-[20px_minmax(0,1fr)_384px]"
+          }`}
+        >
+          <aside className="relative flex flex-col bg-rail py-4 pl-2 pr-3 lg:sticky lg:top-14 lg:h-[calc(100vh-56px)]">
+            <button
+              onClick={() => setShowTree(!showTree)}
+              title={showTree ? "collapse workspace" : "expand workspace"}
+              className="absolute -right-0 top-1/2 z-10 flex h-12 w-4 -translate-y-1/2 items-center justify-center rounded-l border border-r-0 border-[oklch(0.3_0.014_255)] bg-[oklch(0.19_0.011_255)] font-mono text-[9px] text-[oklch(0.6_0.012_255)] hover:text-[oklch(0.9_0.008_255)]"
+            >
+              {showTree ? "◂" : "▸"}
+            </button>
+            {showTree && state && (
+              <WorkspaceTree
+                refreshKey={state.issues.map((i) => i.issue_id + i.state + i.updated_at).join("|")}
+              />
+            )}
+          </aside>
           <div className="flex flex-col gap-5 bg-base p-5">
             <TaskBar />
             {state && (
