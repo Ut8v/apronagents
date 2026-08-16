@@ -30,6 +30,7 @@ from apron.bus.events import (
 )
 from apron.bus.store import StateStore
 from apron.config import Settings
+from apron.console import ConsoleReporter
 from apron.merge.controller import MergeController
 from apron.merge.tester import CommandTester
 from apron.orchestrator import Assigner, IssueGraph, Orchestrator, PlannedIssue, Planner, StaticPlanner
@@ -256,6 +257,11 @@ def launch(settings: Settings, initial_task: str | None = None) -> None:
 
     async def _run() -> None:
         launcher = Launcher(settings, initial_task=initial_task)
+        # The terminal that dispatched the run narrates it, like the dashboard.
+        reporter = ConsoleReporter(
+            dashboard_url=f"http://{settings.host}:{settings.port}"
+        )
+        reporter.attach(launcher.bus)
         try:
             await launcher.start()
             await launcher.wait()
