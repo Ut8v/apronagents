@@ -54,6 +54,14 @@ function WorkerCard({ worker, issues }: { worker: WorkerInfo; issues: Issue[] })
                 {issue.branch}
               </div>
             )}
+            {issue.state === "in_progress" && issue.last_activity && (
+              <div
+                className="mt-1.5 truncate border-t border-[oklch(0.25_0.012_255)] pt-1.5 font-mono text-[10.5px] text-[oklch(0.74_0.06_205)]"
+                title={issue.last_activity}
+              >
+                ▸ {issue.last_activity}
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex items-center gap-2.5">

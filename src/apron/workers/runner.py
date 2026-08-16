@@ -10,10 +10,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Protocol
+from typing import Awaitable, Callable, Mapping, Protocol
 
 from apron.agents.definition import AgentDefinition
 from apron.orchestrator.planner import PlannedIssue
+
+# Called with a short human-readable note whenever the agent does something
+# observable ("Edit tz.py", "Running the tests..."). Backends that can't
+# stream simply never call it.
+OnProgress = Callable[[str], Awaitable[None]]
 
 
 @dataclass(frozen=True)
@@ -31,6 +36,7 @@ class AgentRunner(Protocol):
         definition: AgentDefinition,
         issue: PlannedIssue,
         workdir: Path,
+        on_progress: OnProgress | None = None,
     ) -> WorkResult: ...
 
 
@@ -49,6 +55,7 @@ class FakeRunner:
         definition: AgentDefinition,
         issue: PlannedIssue,
         workdir: Path,
+        on_progress: OnProgress | None = None,
     ) -> WorkResult:
         self.calls.append((definition.name, issue.issue_id))
         files = self._outputs.get(issue.issue_id, {})
@@ -56,4 +63,6 @@ class FakeRunner:
             path = workdir / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content)
+            if on_progress is not None:
+                await on_progress(f"wrote {relative}")
         return WorkResult(summary=f"{issue.title}: wrote {len(files)} file(s)")

@@ -17,7 +17,7 @@ from anthropic import AsyncAnthropic
 
 from apron.agents.definition import AgentDefinition
 from apron.orchestrator.planner import PlannedIssue, issues_from_payload
-from apron.workers.runner import WorkResult
+from apron.workers.runner import OnProgress, WorkResult
 
 DEFAULT_MODEL = "claude-opus-5"
 MAX_TURNS = 40
@@ -78,6 +78,7 @@ class ApiRunner:
         definition: AgentDefinition,
         issue: PlannedIssue,
         workdir: Path,
+        on_progress: OnProgress | None = None,
     ) -> WorkResult:
         model = definition.model or DEFAULT_MODEL
         messages: list[dict] = [
@@ -113,15 +114,22 @@ class ApiRunner:
                 return WorkResult(summary=summary.strip())
 
             messages.append({"role": "assistant", "content": response.content})
-            results = [
-                {
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": _run_tool(workdir, block.name, block.input),
-                }
-                for block in response.content
-                if block.type == "tool_use"
-            ]
+            results = []
+            for block in response.content:
+                if block.type == "text" and on_progress and block.text.strip():
+                    await on_progress(block.text.strip().split("\n")[0][:120])
+                if block.type != "tool_use":
+                    continue
+                if on_progress is not None:
+                    hint = block.input.get("path", "")
+                    await on_progress(f"{block.name} {hint}".strip()[:120])
+                results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": _run_tool(workdir, block.name, block.input),
+                    }
+                )
             messages.append({"role": "user", "content": results})
 
         return WorkResult(summary=f"stopped after {MAX_TURNS} turns")

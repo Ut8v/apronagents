@@ -22,6 +22,7 @@ from apron.bus.events import (
     MergeConflictDetected,
     MergeStarted,
     MergeSucceeded,
+    ProgressReported,
     ReviewApproved,
     ReviewOpened,
     TestsFailed,
@@ -46,6 +47,7 @@ CREATE TABLE IF NOT EXISTS issues (
     state       TEXT NOT NULL,
     worker_id   TEXT,
     branch      TEXT,
+    last_activity TEXT,
     updated_at  REAL NOT NULL
 );
 """
@@ -63,6 +65,7 @@ class IssueSnapshot:
     state: IssueState
     worker_id: str | None
     branch: str | None
+    last_activity: str | None
     updated_at: float
 
 
@@ -94,8 +97,8 @@ class StateStore:
             self._conn.execute(
                 "INSERT OR REPLACE INTO issues"
                 " (issue_id, task_id, title, description, depends_on, state,"
-                "  worker_id, branch, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?)",
+                "  worker_id, branch, last_activity, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?)",
                 (
                     event.issue_id,
                     event.task_id,
@@ -127,6 +130,12 @@ class StateStore:
             self._transition(event, IssueState.TEST_FAILED)
         elif isinstance(event, MergeSucceeded):
             self._transition(event, IssueState.MERGED)
+        elif isinstance(event, ProgressReported):
+            self._conn.execute(
+                "UPDATE issues SET last_activity = ?, updated_at = ?"
+                " WHERE issue_id = ? AND state != ?",
+                (event.note, event.timestamp, event.issue_id, IssueState.MERGED),
+            )
 
     def _transition(self, event: Event, state: IssueState, **columns: str) -> None:
         issue_id: str = getattr(event, "issue_id")
@@ -175,6 +184,7 @@ class StateStore:
             state=IssueState(row["state"]),
             worker_id=row["worker_id"],
             branch=row["branch"],
+            last_activity=row["last_activity"],
             updated_at=row["updated_at"],
         )
 

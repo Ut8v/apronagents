@@ -18,6 +18,7 @@ export interface Issue {
   state: IssueState;
   worker_id: string | null;
   branch: string | null;
+  last_activity: string | null;
   updated_at: number;
 }
 
