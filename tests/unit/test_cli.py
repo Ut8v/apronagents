@@ -102,3 +102,12 @@ def test_planning_lines_reports_only_new_notes():
     # A fresh task starts a fresh note list; the counter must reset with it.
     lines, seen = planning_lines(3, {"active": True, "notes": ["x"]})
     assert lines == ["  ▸ planner · x"]
+
+
+def test_dashboard_url_shows_localhost_for_loopback(tmp_path: Path):
+    from apron.config import Settings
+
+    loop = Settings(working_dir=tmp_path, host="127.0.0.1", port=4650)
+    assert loop.dashboard_url == "http://localhost:4650"
+    lan = Settings(working_dir=tmp_path, host="192.168.1.20", port=4650)
+    assert lan.dashboard_url == "http://192.168.1.20:4650"

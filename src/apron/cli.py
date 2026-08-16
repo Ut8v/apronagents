@@ -191,7 +191,8 @@ def main(argv: list[str] | None = None) -> int:
                 "start one first with `apron start`"
             )
             return 1
-        print(f"task {task_id} dispatched — watch it at http://{args.host}:{args.port}")
+        shown = "localhost" if args.host in ("127.0.0.1", "0.0.0.0") else args.host
+        print(f"task {task_id} dispatched — watch it at http://{shown}:{args.port}")
         if args.follow:
             follow(host=args.host, port=args.port)
         return 0
