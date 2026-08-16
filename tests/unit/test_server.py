@@ -185,3 +185,18 @@ def test_workspace_reports_merged_and_inflight_changes(client, ctx):
     files = {f["path"]: f for f in client.get("/api/workspace").json()["files"]}
     assert files["feature.py"]["merged"] == "A"
     assert files["feature.py"]["editing"] == []
+
+
+def test_state_reports_planning_activity(client, ctx):
+    from apron.bus.events import PlanningProgress, TaskReceived
+
+    assert client.get("/api/state").json()["planning"] == {
+        "active": False,
+        "notes": [],
+    }
+    ctx.store.record(TaskReceived(task_id="t1", prompt="p"))
+    ctx.store.record(PlanningProgress(task_id="t1", note="reading the project…"))
+    assert client.get("/api/state").json()["planning"] == {
+        "active": True,
+        "notes": ["reading the project…"],
+    }

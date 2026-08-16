@@ -29,8 +29,14 @@ export interface WorkerInfo {
   idle: boolean;
 }
 
+export interface PlanningState {
+  active: boolean;
+  notes: string[];
+}
+
 export interface AppState {
   mode: "supervised" | "autonomous";
+  planning: PlanningState;
   issues: Issue[];
   workers: WorkerInfo[];
 }

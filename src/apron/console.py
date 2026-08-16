@@ -19,6 +19,7 @@ from apron.bus.events import (
     MergeConflictDetected,
     MergeStarted,
     MergeSucceeded,
+    PlanningProgress,
     ProgressReported,
     ReviewOpened,
     TaskCompleted,
@@ -63,6 +64,8 @@ class ConsoleReporter:
     def render(self, event: Event) -> str | None:
         if isinstance(event, TaskReceived):
             return self._bold(f"◆ task {event.task_id}: {event.prompt[:100]}")
+        if isinstance(event, PlanningProgress):
+            return self._dim(f"  ▸ planner · {event.note}")
         if isinstance(event, TaskPlanned):
             issues = ", ".join(event.issue_ids)
             return self._bold(f"◆ planned {len(event.issue_ids)} issue(s): {issues}")

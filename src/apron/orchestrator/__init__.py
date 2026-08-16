@@ -10,6 +10,7 @@ through discovery (``role: orchestrator``), never hardcoded.
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from apron.agents.definition import AgentDefinition
 from apron.bus.bus import EventBus
@@ -18,6 +19,7 @@ from apron.bus.events import (
     IssueQueued,
     MergeConflictDetected,
     MergeSucceeded,
+    PlanningProgress,
     TaskCompleted,
     TaskPlanned,
     TaskReceived,
@@ -26,6 +28,8 @@ from apron.bus.events import (
 from apron.orchestrator.assigner import Assigner
 from apron.orchestrator.issue_graph import IssueGraph
 from apron.orchestrator.planner import PlannedIssue, Planner, StaticPlanner
+
+log = logging.getLogger(__name__)
 
 __all__ = [
     "Assigner",
@@ -62,8 +66,31 @@ class Orchestrator:
         )
 
     async def _on_task_received(self, event: TaskReceived) -> None:
+        # Planning can take a model many seconds; run it as a background
+        # task so publishing TaskReceived (and the HTTP request behind it)
+        # returns immediately instead of hanging until the plan is ready.
         self._task_id = event.task_id
-        issues = await self.planner.plan(event.task_id, event.prompt)
+        task = asyncio.ensure_future(self._plan(event))
+        self._work_tasks.add(task)
+        task.add_done_callback(self._work_tasks.discard)
+
+    async def _plan(self, event: TaskReceived) -> None:
+        async def note(text: str) -> None:
+            await self.bus.publish(
+                PlanningProgress(task_id=event.task_id, note=text)
+            )
+
+        # Say something before the model starts thinking, so the dispatch
+        # terminal never sits silent while the plan is being written.
+        await note("splitting the task into issues…")
+        try:
+            issues = await self.planner.plan(
+                event.task_id, event.prompt, on_progress=note
+            )
+        except Exception:
+            log.exception("planning failed for task %s", event.task_id)
+            await note("planning failed — check the apron terminal for details")
+            return
         for issue in issues:
             self.graph.add(issue)
             await self.bus.publish(

@@ -66,6 +66,7 @@ def state_payload(ctx: ServerContext) -> dict:
     """The whole dashboard state, projected from the store and worker pool."""
     return {
         "mode": ctx.controller.mode.value,
+        "planning": ctx.store.planning(),
         "issues": [
             {
                 "issue_id": i.issue_id,

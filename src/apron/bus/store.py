@@ -158,6 +158,25 @@ class StateStore:
             ).fetchall()
         return [(row["seq"], event_from_dict(json.loads(row["payload"]))) for row in rows]
 
+    def planning(self, limit: int = 12) -> dict:
+        """The state of the current planning phase, from the journal:
+        ``active`` while a received task has not been planned yet, plus the
+        planner's notes since that task arrived (oldest first)."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT kind, payload FROM events"
+                " WHERE kind IN ('TaskReceived', 'TaskPlanned', 'PlanningProgress')"
+                " ORDER BY seq DESC LIMIT 100"
+            ).fetchall()
+        notes: list[str] = []
+        for row in rows:  # newest first, stop at the current task's start
+            if row["kind"] == "TaskPlanned":
+                return {"active": False, "notes": []}
+            if row["kind"] == "TaskReceived":
+                return {"active": True, "notes": list(reversed(notes[:limit]))}
+            notes.append(json.loads(row["payload"])["note"])
+        return {"active": False, "notes": []}
+
     def issues(self) -> list[IssueSnapshot]:
         """Every known issue, oldest first."""
         with self._lock:

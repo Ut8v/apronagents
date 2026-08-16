@@ -75,3 +75,11 @@ def test_follow_diffs_snapshots_into_lines():
 
     lines, _ = state_changes(seen, [dict(issue, state="in_review")])
     assert lines == []  # no change, no output
+
+
+def test_planning_progress_renders_as_a_dim_planner_line():
+    from apron.bus.events import PlanningProgress
+
+    reporter, _ = reporter_and_output()
+    line = reporter.render(PlanningProgress(task_id="t1", note="reading files…"))
+    assert line == "  ▸ planner · reading files…"

@@ -65,7 +65,15 @@ def build_backend(
             "Install the claude or codex CLI, or set ANTHROPIC_API_KEY, "
             "for real agents."
         )
-        return FakeRunner(_DEMO_OUTPUTS), StaticPlanner(_DEMO_ISSUES), choice
+        planner = StaticPlanner(
+            _DEMO_ISSUES,
+            narration=(
+                "reading the project…",
+                "splitting into independent issues…",
+            ),
+            pace=0.7,
+        )
+        return FakeRunner(_DEMO_OUTPUTS), planner, choice
     else:
         raise ValueError(f"unknown runner {choice!r}")
 

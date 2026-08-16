@@ -21,7 +21,12 @@ from pathlib import Path
 from typing import Callable
 
 from apron.agents.definition import AgentDefinition
-from apron.orchestrator.planner import PlanError, PlannedIssue, issues_from_payload
+from apron.orchestrator.planner import (
+    OnPlanProgress,
+    PlanError,
+    PlannedIssue,
+    issues_from_payload,
+)
 from apron.workers.runner import OnProgress, WorkResult
 
 _SUMMARY_LIMIT = 4000
@@ -52,6 +57,7 @@ class CliProfile:
     # Read the final message from the {output} file instead of stdout.
     uses_output_file: bool = False
     work_stream_args: tuple[str, ...] | None = None
+    plan_stream_args: tuple[str, ...] | None = None
     stream_format: str = "lines"
 
 
@@ -65,6 +71,10 @@ CLAUDE_CODE_PROFILE = CliProfile(
         "--allowedTools", "Read,Edit,Write,Glob,Grep,Bash",
     ),
     plan_args=("-p", "{prompt}", "--append-system-prompt", "{system}"),
+    plan_stream_args=(
+        "-p", "{prompt}", "--append-system-prompt", "{system}",
+        "--output-format", "stream-json", "--verbose",
+    ),
     model_args=("--model", "{model}"),
     model_prefixes=("claude",),
     work_stream_args=(
@@ -85,6 +95,12 @@ CODEX_PROFILE = CliProfile(
         "--output-last-message", "{output}", "{prompt}",
     ),
     plan_args=(
+        "exec", "--sandbox", "read-only", "--skip-git-repo-check",
+        "--output-last-message", "{output}", "{prompt}",
+    ),
+    # codex streams human-readable progress on stdout as-is; the final
+    # message still comes from the {output} file, so the same args work.
+    plan_stream_args=(
         "exec", "--sandbox", "read-only", "--skip-git-repo-check",
         "--output-last-message", "{output}", "{prompt}",
     ),
@@ -152,9 +168,18 @@ class CliAgentRunner:
         return WorkResult(summary=summary[:_SUMMARY_LIMIT])
 
     async def complete(
-        self, definition: AgentDefinition, prompt: str, workdir: Path
+        self,
+        definition: AgentDefinition,
+        prompt: str,
+        workdir: Path,
+        on_progress: OnProgress | None = None,
     ) -> str:
         """One read-only completion (used for planning)."""
+        if on_progress is not None and self.profile.plan_stream_args:
+            return await self._invoke(
+                self.profile.plan_stream_args, definition, prompt, workdir,
+                on_progress=on_progress,
+            )
         return await self._invoke(self.profile.plan_args, definition, prompt, workdir)
 
     async def _invoke(
@@ -258,7 +283,12 @@ class CliPlanner:
         self.working_dir = working_dir
         self.session_context = session_context
 
-    async def plan(self, task_id: str, prompt: str) -> list[PlannedIssue]:
+    async def plan(
+        self,
+        task_id: str,
+        prompt: str,
+        on_progress: OnPlanProgress | None = None,
+    ) -> list[PlannedIssue]:
         context = (
             "\n\nBackground from the user's recent interactive Claude session:"
             f"\n{self.session_context}\n"
@@ -277,8 +307,22 @@ class CliPlanner:
                 '"description": "...", "depends_on": []}]}'
             ),
             self.working_dir,
+            on_progress=_plan_note_filter(on_progress),
         )
         return issues_from_payload(_extract_json(text))
+
+
+def _plan_note_filter(on_progress: OnPlanProgress | None) -> OnProgress | None:
+    """The plan itself streams back as text; echoing raw JSON as "activity"
+    would read as noise, so only prose and tool actions become notes."""
+    if on_progress is None:
+        return None
+
+    async def filtered(note: str) -> None:
+        if not note.lstrip().startswith(("{", "}", '"', "```", "[")):
+            await on_progress(note)
+
+    return filtered
 
 
 _SUMMARY_PROMPT = (
