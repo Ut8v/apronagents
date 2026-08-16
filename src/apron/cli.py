@@ -1,13 +1,23 @@
-"""Entry point for the ``apron`` command: parse args, hand off to the launcher."""
+"""Entry point for the ``apron`` command: parse args, hand off to the launcher.
+
+Two ways to dispatch a task from the terminal, mirroring the dashboard's
+dispatch bar:
+
+- ``apron start "add dark mode"`` boots everything and dispatches immediately
+- ``apron task "add dark mode"`` sends a task to an already-running apron
+"""
 
 from __future__ import annotations
 
 import argparse
+import json
 import logging
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from apron import __version__
-from apron.config import Mode, load_settings
+from apron.config import DEFAULT_HOST, DEFAULT_PORT, Mode, load_settings
 from apron.launcher import launch
 
 
@@ -23,6 +33,11 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     start = subparsers.add_parser("start", help="boot all organs and open the dashboard")
+    start.add_argument(
+        "task",
+        nargs="*",
+        help="optional task to dispatch as soon as apron is up",
+    )
     start.add_argument(
         "--mode",
         choices=[mode.value for mode in Mode],
@@ -57,7 +72,25 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="do not open the dashboard in a browser",
     )
+
+    task = subparsers.add_parser(
+        "task", help="dispatch a task to a running apron from your terminal"
+    )
+    task.add_argument("prompt", nargs="+", help="the task description")
+    task.add_argument("--port", type=int, default=DEFAULT_PORT, help="apron's dashboard port")
+    task.add_argument("--host", default=DEFAULT_HOST, help="apron's host")
     return parser
+
+
+def send_task(prompt: str, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> str:
+    """POST a task to a running apron; returns the task id."""
+    request = urllib.request.Request(
+        f"http://{host}:{port}/api/task",
+        data=json.dumps({"prompt": prompt}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        return json.loads(response.read())["task_id"]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -74,7 +107,22 @@ def main(argv: list[str] | None = None) -> int:
             test_command=args.test_command,
             open_browser=not args.no_browser,
         )
-        launch(settings)
+        launch(settings, initial_task=" ".join(args.task).strip() or None)
+        return 0
+
+    if args.command == "task":
+        prompt = " ".join(args.prompt).strip()
+        try:
+            task_id = send_task(prompt, host=args.host, port=args.port)
+        except (urllib.error.URLError, OSError):
+            print(
+                f"apron: nothing is listening on {args.host}:{args.port} — "
+                "start one first with `apron start`"
+            )
+            return 1
+        print(f"task {task_id} dispatched — watch it at http://{args.host}:{args.port}")
+        return 0
+
     return 0
 
 
