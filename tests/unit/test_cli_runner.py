@@ -60,6 +60,7 @@ async def test_runs_the_cli_in_the_clone_and_returns_its_summary(tmp_path: Path)
     assert "Add greeting" in args
     assert "You are a careful worker." in args  # system prompt passed through
     assert "--model\nclaude-opus-5" in args
+    assert "Bash" in args  # workers may run tests; planning stays read-only
 
 
 async def test_model_flag_is_skipped_for_foreign_models(tmp_path: Path):
