@@ -70,8 +70,13 @@ TOOLS = [
 class ApiRunner:
     """Executes an agent definition against a working directory via the API."""
 
-    def __init__(self, client: AsyncAnthropic | None = None) -> None:
+    def __init__(
+        self,
+        client: AsyncAnthropic | None = None,
+        session_context: str | None = None,
+    ) -> None:
         self.client = client or AsyncAnthropic()
+        self.session_context = session_context
 
     async def run_issue(
         self,
@@ -91,6 +96,13 @@ class ApiRunner:
                     "Use the tools to inspect the project and write your "
                     "changes. When the issue is fully implemented, stop and "
                     "reply with a one-paragraph summary of what you changed."
+                    + (
+                        "\n\nBackground from the user's recent interactive "
+                        "Claude session (already agreed; do not re-litigate):\n"
+                        + self.session_context
+                        if self.session_context
+                        else ""
+                    )
                 ),
             }
         ]
@@ -167,10 +179,12 @@ class ApiPlanner:
         definition_resolver: Callable[[], AgentDefinition],
         working_dir: Path,
         client: AsyncAnthropic | None = None,
+        session_context: str | None = None,
     ) -> None:
         self.client = client or AsyncAnthropic()
         self._resolve_definition = definition_resolver
         self.working_dir = working_dir
+        self.session_context = session_context
 
     async def plan(self, task_id: str, prompt: str) -> list[PlannedIssue]:
         definition = self._resolve_definition()
@@ -185,7 +199,13 @@ class ApiPlanner:
                     "content": (
                         f"Task: {prompt}\n\n"
                         f"Project files:\n{_list_files(self.working_dir)}\n\n"
-                        "Split this task into issues. Refer to files by "
+                        + (
+                            "Background from the user's recent interactive "
+                            f"Claude session:\n{self.session_context}\n\n"
+                            if self.session_context
+                            else ""
+                        )
+                        + "Split this task into issues. Refer to files by "
                         "paths relative to the project root."
                     ),
                 }

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import shutil
 import webbrowser
 
 import uvicorn
@@ -25,6 +24,7 @@ from apron.bus.bus import EventBus
 from apron.bus.events import (
     AgentDefinitionsReloaded,
     HandoffCompleted,
+    ReviewOpened,
     TaskCompleted,
     TaskReceived,
 )
@@ -33,26 +33,17 @@ from apron.config import Settings
 from apron.console import ConsoleReporter
 from apron.merge.controller import MergeController
 from apron.merge.tester import CommandTester
-from apron.orchestrator import Assigner, IssueGraph, Orchestrator, PlannedIssue, Planner, StaticPlanner
-from apron.sandbox.handoff import handoff
+from apron.orchestrator import Assigner, IssueGraph, Orchestrator
+from apron.sandbox.handoff import RunLogIssue, handoff, write_run_log
 from apron.sandbox.repo import SandboxRepo
 from apron.server.app import build_app
 from apron.server.routes import ServerContext
-from apron.workers.api_runner import ApiPlanner, ApiRunner
-from apron.workers.cli_runner import CLAUDE_CODE_PROFILE, CODEX_PROFILE, CliAgentRunner, CliPlanner
-from apron.workers.runner import AgentRunner, FakeRunner
+from apron.workers.backends import build_backend
+from apron.workers.cli_runner import summarize_recent_session
 from apron.workers.worker import Worker
 
 log = logging.getLogger(__name__)
 
-_DEMO_ISSUES = [
-    PlannedIssue("demo-greeting", "Add a demo greeting", "Write apron-demo/greeting.txt"),
-    PlannedIssue("demo-farewell", "Add a demo farewell", "Write apron-demo/farewell.txt"),
-]
-_DEMO_OUTPUTS = {
-    "demo-greeting": {"apron-demo/greeting.txt": "Hello from an Apron demo worker.\n"},
-    "demo-farewell": {"apron-demo/farewell.txt": "Goodbye from an Apron demo worker.\n"},
-}
 
 
 class Launcher:
@@ -78,8 +69,28 @@ class Launcher:
 
     async def start(self) -> None:
         settings = self.settings
+        self._session_context: str | None = None
+        if settings.with_session_context:
+            log.info("gathering context from your recent interactive session...")
+            self._session_context = await summarize_recent_session(
+                settings.working_dir
+            )
+            if self._session_context:
+                log.info(
+                    "session context attached (%d chars)", len(self._session_context)
+                )
+            else:
+                log.warning(
+                    "no session context found (no claude CLI, or no recent "
+                    "session for this directory) — continuing without it"
+                )
         self.repo = SandboxRepo.create(seed_dir=settings.working_dir)
-        runner, planner = self._build_backend()
+        runner, planner, self._backend_name = build_backend(
+            settings.runner,
+            settings.working_dir,
+            lambda: self._resolve(AgentRole.ORCHESTRATOR),
+            session_context=self._session_context,
+        )
 
         worker_def = self._resolve(AgentRole.WORKER)
         self.workers = [
@@ -126,52 +137,6 @@ class Launcher:
             )
             log.info("task %s dispatched from the command line", task_id)
 
-    def _build_backend(self) -> tuple[AgentRunner, Planner]:
-        choice = self.settings.runner
-        if choice == "auto":
-            choice = self._detect_backend()
-        self._backend_name = choice
-
-        if choice == "claude-code":
-            runner = CliAgentRunner(CLAUDE_CODE_PROFILE)
-        elif choice == "codex":
-            runner = CliAgentRunner(CODEX_PROFILE)
-        elif choice == "api":
-            runner = ApiRunner()
-            return runner, ApiPlanner(
-                lambda: self._resolve(AgentRole.ORCHESTRATOR),
-                self.settings.working_dir,
-                client=runner.client,
-            )
-        elif choice == "demo":
-            log.warning(
-                "no agent backend found: running the DEMO loop (fake agents). "
-                "Install the claude or codex CLI, or set ANTHROPIC_API_KEY, "
-                "for real agents."
-            )
-            return FakeRunner(_DEMO_OUTPUTS), StaticPlanner(_DEMO_ISSUES)
-        else:
-            raise ValueError(f"unknown runner {choice!r}")
-
-        return runner, CliPlanner(
-            runner,
-            lambda: self._resolve(AgentRole.ORCHESTRATOR),
-            self.settings.working_dir,
-        )
-
-    def _detect_backend(self) -> str:
-        if shutil.which(CLAUDE_CODE_PROFILE.executable):
-            return "claude-code"
-        if shutil.which(CODEX_PROFILE.executable):
-            return "codex"
-        try:
-            # Resolves ANTHROPIC_API_KEY, auth tokens, or an `ant` profile;
-            # raises when no credential source exists.
-            ApiRunner()
-            return "api"
-        except Exception:
-            return "demo"
-
     async def _start_server(self) -> None:
         ctx = ServerContext(
             self.settings, self.bus, self.store, self.repo, self.workers, self.controller
@@ -211,6 +176,13 @@ class Launcher:
 
     async def _on_task_completed(self, event: TaskCompleted) -> None:
         self.handed_off_files = handoff(self.repo, self.settings.working_dir)
+        log_path = write_run_log(
+            self.settings.working_dir,
+            task_prompt=self._task_prompt(event.task_id),
+            issues=self._run_log_issues(),
+            files=self.handed_off_files,
+        )
+        log.info("run log written to %s", log_path)
         await self.bus.publish(
             HandoffCompleted(
                 task_id=event.task_id, target_dir=str(self.settings.working_dir)
@@ -221,6 +193,26 @@ class Launcher:
             len(self.handed_off_files), self.settings.working_dir,
         )
         self._done.set()
+
+    def _task_prompt(self, task_id: str) -> str:
+        for _, event in self.store.events_since():
+            if isinstance(event, TaskReceived) and event.task_id == task_id:
+                return event.prompt
+        return ""
+
+    def _run_log_issues(self) -> list[RunLogIssue]:
+        summaries: dict[str, str] = {}
+        for _, event in self.store.events_since():
+            if isinstance(event, ReviewOpened):
+                summaries[event.issue_id] = event.summary
+        return [
+            RunLogIssue(
+                issue_id=issue.issue_id,
+                title=issue.title,
+                summary=summaries.get(issue.issue_id, ""),
+            )
+            for issue in self.store.issues()
+        ]
 
     async def wait(self) -> None:
         """Block until the task is handed off (or forever, if none arrives)."""

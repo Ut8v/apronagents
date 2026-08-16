@@ -43,6 +43,9 @@ async def test_launch_task_handoff_stop(tmp_path):
     # The handoff is the only bridge to reality: the merged demo files are in
     # the working directory, and the disposable sandbox is gone.
     assert (project / "apron-demo" / "greeting.txt").exists()
+    run_log = (project / ".apron" / "last-run.md").read_text()
+    assert "run the demo" in run_log
+    assert "demo-greeting" in run_log
     assert (project / "apron-demo" / "farewell.txt").exists()
     assert sorted(launcher.handed_off_files)[-1] == "apron-demo/greeting.txt"
     assert (project / "README.md").read_text() == "my project\n"  # untouched
