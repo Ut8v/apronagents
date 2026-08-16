@@ -122,3 +122,21 @@ def test_state_survives_reopening_the_database(tmp_path):
     assert reopened.issue("i1").state is IssueState.CLAIMED
     assert len(reopened.events_since()) == 2
     reopened.close()
+
+
+def test_progress_updates_last_activity_but_never_a_merged_issue():
+    from apron.bus.events import ProgressReported
+
+    store = StateStore()
+    store.record(make_queued())
+    store.record(
+        ProgressReported(issue_id="i1", worker_id="w1", note="Edit tz.py")
+    )
+    assert store.issue("i1").last_activity == "Edit tz.py"
+
+    store.record(MergeStarted(issue_id="i1", branch="issue/i1"))
+    store.record(MergeSucceeded(issue_id="i1", branch="issue/i1"))
+    store.record(
+        ProgressReported(issue_id="i1", worker_id="w1", note="stray late note")
+    )
+    assert store.issue("i1").last_activity == "Edit tz.py"

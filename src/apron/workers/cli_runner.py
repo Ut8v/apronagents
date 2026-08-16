@@ -22,9 +22,10 @@ from typing import Callable
 
 from apron.agents.definition import AgentDefinition
 from apron.orchestrator.planner import PlanError, PlannedIssue, issues_from_payload
-from apron.workers.runner import WorkResult
+from apron.workers.runner import OnProgress, WorkResult
 
 _SUMMARY_LIMIT = 4000
+_NOTE_LIMIT = 120
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,9 @@ class CliProfile:
     ``{prompt}``, ``{system}``, and ``{output}`` are substituted per run.
     ``model_args`` is appended when the agent definition names a model the
     CLI can serve (checked against ``model_prefixes``; empty means any).
+    When ``work_stream_args`` is set, issues run with it and stdout is
+    parsed live per ``stream_format`` (``claude-json`` or ``lines``) so the
+    dashboard can show what the agent is doing.
     """
 
     name: str
@@ -47,6 +51,8 @@ class CliProfile:
     fold_system_into_prompt: bool = False
     # Read the final message from the {output} file instead of stdout.
     uses_output_file: bool = False
+    work_stream_args: tuple[str, ...] | None = None
+    stream_format: str = "lines"
 
 
 CLAUDE_CODE_PROFILE = CliProfile(
@@ -61,6 +67,14 @@ CLAUDE_CODE_PROFILE = CliProfile(
     plan_args=("-p", "{prompt}", "--append-system-prompt", "{system}"),
     model_args=("--model", "{model}"),
     model_prefixes=("claude",),
+    work_stream_args=(
+        "-p", "{prompt}",
+        "--append-system-prompt", "{system}",
+        "--permission-mode", "acceptEdits",
+        "--allowedTools", "Read,Edit,Write,Glob,Grep",
+        "--output-format", "stream-json", "--verbose",
+    ),
+    stream_format="claude-json",
 )
 
 CODEX_PROFILE = CliProfile(
@@ -78,6 +92,13 @@ CODEX_PROFILE = CliProfile(
     model_prefixes=("gpt", "o", "codex"),
     fold_system_into_prompt=True,
     uses_output_file=True,
+    # codex already streams human-readable progress on stdout; the final
+    # message still comes from the {output} file.
+    work_stream_args=(
+        "exec", "--full-auto", "--skip-git-repo-check",
+        "--output-last-message", "{output}", "{prompt}",
+    ),
+    stream_format="lines",
 )
 
 
@@ -93,6 +114,7 @@ class CliAgentRunner:
         definition: AgentDefinition,
         issue: PlannedIssue,
         workdir: Path,
+        on_progress: OnProgress | None = None,
     ) -> WorkResult:
         prompt = (
             f"Implement this issue in the current project.\n\n"
@@ -102,9 +124,15 @@ class CliAgentRunner:
             "issue is fully implemented, finish with a one-paragraph summary "
             "of what you changed."
         )
-        summary = await self._invoke(
-            self.profile.work_args, definition, prompt, workdir
-        )
+        if on_progress is not None and self.profile.work_stream_args:
+            summary = await self._invoke(
+                self.profile.work_stream_args, definition, prompt, workdir,
+                on_progress=on_progress,
+            )
+        else:
+            summary = await self._invoke(
+                self.profile.work_args, definition, prompt, workdir
+            )
         return WorkResult(summary=summary[:_SUMMARY_LIMIT])
 
     async def complete(
@@ -119,6 +147,7 @@ class CliAgentRunner:
         definition: AgentDefinition,
         prompt: str,
         workdir: Path,
+        on_progress: OnProgress | None = None,
     ) -> str:
         profile = self.profile
         if profile.fold_system_into_prompt:
@@ -147,9 +176,15 @@ class CliAgentRunner:
                 stderr=asyncio.subprocess.PIPE,
             )
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), timeout=self.timeout
-                )
+                if on_progress is None:
+                    stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                        process.communicate(), timeout=self.timeout
+                    )
+                    stdout = stdout_bytes.decode(errors="replace")
+                else:
+                    stdout, stderr_bytes = await asyncio.wait_for(
+                        self._stream(process, on_progress), timeout=self.timeout
+                    )
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
@@ -159,11 +194,37 @@ class CliAgentRunner:
             if process.returncode != 0:
                 raise RuntimeError(
                     f"{profile.name} failed ({process.returncode}): "
-                    f"{stderr.decode(errors='replace')[-1000:]}"
+                    f"{stderr_bytes.decode(errors='replace')[-1000:]}"
                 )
             if profile.uses_output_file and output_file.exists():
                 return output_file.read_text().strip()
-            return stdout.decode(errors="replace").strip()
+            return stdout.strip()
+
+    async def _stream(self, process, on_progress: OnProgress) -> tuple[str, bytes]:
+        """Read stdout live, reporting a note per observable action; the
+        returned "stdout" is the final message the stream carried."""
+        final = ""
+        async def drain_stderr() -> bytes:
+            return await process.stderr.read()
+        stderr_task = asyncio.ensure_future(drain_stderr())
+        while True:
+            line = await process.stdout.readline()
+            if not line:
+                break
+            text = line.decode(errors="replace").rstrip()
+            if not text:
+                continue
+            if self.profile.stream_format == "claude-json":
+                notes, result = _claude_stream_line(text)
+            else:
+                notes, result = [text[:_NOTE_LIMIT]], None
+            if result is not None:
+                final = result
+            for note in notes:
+                await on_progress(note)
+        stderr_bytes = await stderr_task
+        await process.wait()
+        return final, stderr_bytes
 
 
 class CliPlanner:
@@ -192,6 +253,32 @@ class CliPlanner:
             self.working_dir,
         )
         return issues_from_payload(_extract_json(text))
+
+
+def _claude_stream_line(line: str) -> tuple[list[str], str | None]:
+    """Turn one ``claude --output-format stream-json`` line into progress
+    notes, plus the final result text when the line carries it."""
+    try:
+        payload = json.loads(line)
+    except json.JSONDecodeError:
+        return [], None
+    if payload.get("type") == "result":
+        return [], str(payload.get("result", ""))
+    if payload.get("type") != "assistant":
+        return [], None
+    notes: list[str] = []
+    for block in payload.get("message", {}).get("content", []):
+        if block.get("type") == "text" and block.get("text", "").strip():
+            notes.append(block["text"].strip().split("\n")[0][:_NOTE_LIMIT])
+        elif block.get("type") == "tool_use":
+            tool_input = block.get("input", {})
+            hint = next(
+                (str(tool_input[k]) for k in ("file_path", "path", "pattern", "command")
+                 if k in tool_input),
+                "",
+            )
+            notes.append(f"{block.get('name', 'tool')} {hint}".strip()[:_NOTE_LIMIT])
+    return notes, None
 
 
 def _extract_json(text: str) -> dict:

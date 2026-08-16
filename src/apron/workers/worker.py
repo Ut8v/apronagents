@@ -7,7 +7,13 @@ from typing import Callable
 
 from apron.agents.definition import AgentDefinition
 from apron.bus.bus import EventBus
-from apron.bus.events import IssueClaimed, ReviewOpened, WorkerStarted, WorkStarted
+from apron.bus.events import (
+    IssueClaimed,
+    ProgressReported,
+    ReviewOpened,
+    WorkerStarted,
+    WorkStarted,
+)
 from apron.orchestrator.planner import PlannedIssue
 from apron.sandbox.clone import WorkerClone
 from apron.sandbox.git_ops import GitError
@@ -71,7 +77,18 @@ class Worker:
                 )
             )
 
-            result = await self.runner.run_issue(self.definition, issue, clone.path)
+            async def report(note: str) -> None:
+                await self.bus.publish(
+                    ProgressReported(
+                        issue_id=issue.issue_id,
+                        worker_id=self.worker_id,
+                        note=note[:200],
+                    )
+                )
+
+            result = await self.runner.run_issue(
+                self.definition, issue, clone.path, on_progress=report
+            )
             clone.commit_all(issue.title)
             # Force is safe here: each branch has exactly one owner, and a
             # rework pass rebuilds it from fresh main with new history.

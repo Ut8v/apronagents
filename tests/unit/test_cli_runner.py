@@ -127,3 +127,42 @@ def test_extract_json_tolerates_fences_and_rejects_prose():
     assert _extract_json('```json\n{"issues": []}\n```') == {"issues": []}
     with pytest.raises(PlanError, match="no JSON object"):
         _extract_json("I could not produce a plan.")
+
+
+async def test_streaming_reports_notes_and_reads_the_result(tmp_path: Path):
+    workdir = tmp_path / "clone"
+    workdir.mkdir()
+    lines = [
+        {"type": "system", "subtype": "init"},
+        {"type": "assistant", "message": {"content": [
+            {"type": "text", "text": "Let me look at the project first."}]}},
+        {"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "Read", "input": {"file_path": "tz.py"}}]}},
+        {"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "Edit", "input": {"file_path": "cli.py"}}]}},
+        {"type": "result", "result": "Added the flag to cli.py."},
+    ]
+    script = "\n".join(f"echo '{json.dumps(l)}'" for l in lines) + "\n"
+    runner = claude_like(tmp_path, script)
+
+    notes = []
+
+    async def on_progress(note):
+        notes.append(note)
+
+    result = await runner.run_issue(DEFINITION, ISSUE, workdir, on_progress=on_progress)
+
+    assert result.summary == "Added the flag to cli.py."
+    assert notes == [
+        "Let me look at the project first.",
+        "Read tz.py",
+        "Edit cli.py",
+    ]
+
+
+async def test_without_a_callback_streaming_args_are_not_used(tmp_path: Path):
+    workdir = tmp_path / "clone"
+    workdir.mkdir()
+    runner = claude_like(tmp_path, 'printf "%s\\n" "$@" > args.txt\necho done\n')
+    await runner.run_issue(DEFINITION, ISSUE, workdir)
+    assert "stream-json" not in (workdir / "args.txt").read_text()

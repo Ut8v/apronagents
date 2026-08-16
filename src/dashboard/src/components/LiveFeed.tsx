@@ -52,7 +52,9 @@ function FeedRow({ event }: { event: BusEvent }) {
   );
 }
 
-export default function LiveFeed({ events }: { events: BusEvent[] }) {
+export default function LiveFeed({ events: allEvents }: { events: BusEvent[] }) {
+  // Progress chatter lives on the worker cards; the feed keeps lifecycle facts.
+  const events = allEvents.filter((e) => e.kind !== "ProgressReported");
   return (
     <section className="flex min-h-0 flex-1 flex-col">
       <div className="mb-2.5 flex items-center gap-3">
