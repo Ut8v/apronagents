@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -79,6 +80,11 @@ def build_parser() -> argparse.ArgumentParser:
     task.add_argument("prompt", nargs="+", help="the task description")
     task.add_argument("--port", type=int, default=DEFAULT_PORT, help="apron's dashboard port")
     task.add_argument("--host", default=DEFAULT_HOST, help="apron's host")
+    task.add_argument(
+        "-f", "--follow",
+        action="store_true",
+        help="stay attached and narrate the run in this terminal",
+    )
     return parser
 
 
@@ -91,6 +97,50 @@ def send_task(prompt: str, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -
     )
     with urllib.request.urlopen(request, timeout=10) as response:
         return json.loads(response.read())["task_id"]
+
+
+def fetch_state(host: str, port: int) -> dict:
+    with urllib.request.urlopen(
+        f"http://{host}:{port}/api/state", timeout=10
+    ) as response:
+        return json.loads(response.read())
+
+
+def state_changes(previous: dict, issues: list[dict]) -> tuple[list[str], dict]:
+    """Diff two state snapshots into narration lines (pure, for testing)."""
+    lines: list[str] = []
+    current: dict = {}
+    for issue in issues:
+        issue_id = issue["issue_id"]
+        snapshot = (issue["state"], issue.get("last_activity"))
+        current[issue_id] = snapshot
+        old_state, old_activity = previous.get(issue_id, (None, None))
+        if issue["state"] != old_state:
+            lines.append(f"{issue_id}: {issue['state']}")
+        elif issue["state"] == "in_progress" and snapshot[1] and snapshot[1] != old_activity:
+            lines.append(f"  ▸ {issue['worker_id']} · {snapshot[1]}")
+    return lines, current
+
+
+def follow(host: str, port: int) -> None:
+    """Poll a running apron and narrate the run until it finishes."""
+    previous: dict = {}
+    try:
+        while True:
+            try:
+                state = fetch_state(host, port)
+            except (urllib.error.URLError, OSError):
+                print("apron stopped — the run is over (handoff done, or shut down)")
+                return
+            lines, previous = state_changes(previous, state["issues"])
+            for line in lines:
+                print(line, flush=True)
+            issues = state["issues"]
+            if issues and all(i["state"] == "merged" for i in issues):
+                print("all issues merged — waiting for handoff")
+            time.sleep(2)
+    except KeyboardInterrupt:
+        print("\ndetached — the run continues; reattach with apron task --follow")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -121,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
         print(f"task {task_id} dispatched — watch it at http://{args.host}:{args.port}")
+        if args.follow:
+            follow(host=args.host, port=args.port)
         return 0
 
     return 0
