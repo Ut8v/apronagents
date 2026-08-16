@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ut8v.github.io/apronagents/sitemap.xml

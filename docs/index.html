@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apron Agents — multi-agent AI coding with a human merge gate</title>
+<meta name="description" content="Open-source orchestrator that splits a coding task across AI agents (Claude Code, Codex, or the Anthropic API), runs them in a sandboxed local git, and merges small reviewed diffs behind a human gate. Your real remote is never touched.">
+<link rel="canonical" href="https://ut8v.github.io/apronagents/">
+<meta name="theme-color" content="#0f1114">
+<meta name="author" content="Utshav Khatiwada">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Apron Agents">
+<meta property="og:title" content="Apron Agents — multi-agent AI coding with a human merge gate">
+<meta property="og:description" content="A crew of coding agents, one merge cockpit: sandboxed git for AI agents, small reviewed diffs, your call on every merge. Works with Claude Code, Codex, or an API key.">
+<meta property="og:url" content="https://ut8v.github.io/apronagents/">
+<meta property="og:image" content="https://ut8v.github.io/apronagents/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Apron Agents — a crew of coding agents, one merge cockpit">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Apron Agents — multi-agent AI coding with a human merge gate">
+<meta name="twitter:description" content="Sandboxed git for AI agents, small reviewed diffs, your call on every merge. Bring your Claude Code or ChatGPT plan.">
+<meta name="twitter:image" content="https://ut8v.github.io/apronagents/og.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Apron Agents",
+  "alternateName": "apronagents",
+  "url": "https://ut8v.github.io/apronagents/",
+  "image": "https://ut8v.github.io/apronagents/og.png",
+  "description": "Local multi-agent coding orchestrator with a sandboxed git staging area and a human review gate. Splits a task across AI coding agents, merges their work one reviewed chunk at a time, and never touches your real remote.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "macOS, Linux",
+  "softwareRequirements": "Python 3.11 or later",
+  "license": "https://opensource.org/licenses/MIT",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "downloadUrl": "https://pypi.org/project/apronagents/",
+  "sameAs": ["https://github.com/Ut8v/apronagents"],
+  "author": { "@type": "Person", "name": "Utshav Khatiwada", "url": "https://github.com/Ut8v" }
+}
+</script>
+
+<link rel="icon" type="image/svg+xml" href="brand/mark.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="brand/mark-32.png">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14161A; --clay:#B0673C; --canvas:#F5F4F0;
+    --page:#0f1114; --card:#1a1d23;
+    --ink-soft:#b9b6ae; --ink-faint:#8b8f98; --line:#262a31;
+    /* cockpit (matches the real dashboard) */
+    --c-base:oklch(0.145 0.01 255); --c-rail:oklch(0.165 0.01 255);
+    --c-card:oklch(0.195 0.012 255); --c-line:oklch(0.27 0.013 255);
+    --c-linedim:oklch(0.23 0.011 255); --c-ink:oklch(0.93 0.008 255);
+    --c-muted:oklch(0.68 0.012 255); --c-dim:oklch(0.58 0.012 255);
+    --amber:oklch(0.8 0.11 78); --green:oklch(0.76 0.1 152);
+    --cyan:oklch(0.74 0.1 205); --violet:oklch(0.74 0.1 296);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--page);color:var(--canvas);font:16px/1.55 "Space Grotesk",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+  a{color:inherit}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+
+  header.site{position:sticky;top:0;z-index:9;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  header.site .wrap{display:flex;align-items:center;gap:12px;height:60px}
+  .wordmark{font-weight:500;letter-spacing:-.04em;font-size:20px}
+  header.site nav{margin-left:auto;display:flex;gap:22px;font-size:14px}
+  header.site nav a{text-decoration:none;color:var(--ink-soft)}
+  header.site nav a:hover{color:var(--canvas)}
+  .gh{border:1.5px solid var(--canvas);border-radius:8px;padding:5px 12px;font-weight:500}
+  .gh:hover{background:var(--canvas);color:var(--ink)}
+
+  .hero{padding:72px 0 34px;text-align:center}
+  .hero h1{font-size:clamp(30px,5vw,52px);line-height:1.08;letter-spacing:-.03em;font-weight:600;max-width:820px;margin:0 auto}
+  .hero h1 em{font-style:normal;color:var(--clay)}
+  .hero p.sub{margin:18px auto 0;max-width:640px;color:var(--ink-soft);font-size:18px}
+  .cta{margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{display:inline-block;text-decoration:none;border-radius:10px;padding:11px 20px;font-weight:500;font-size:15px}
+  .btn.primary{background:var(--clay);color:var(--ink)}
+  .btn.primary:hover{background:#c47a4b}
+  .btn.ghost{border:1.5px solid var(--canvas);color:var(--canvas)}
+  .btn.ghost:hover{background:rgba(245,244,240,.08)}
+  .pipnote{margin-top:14px;font-size:13px;color:var(--ink-faint)}
+  .pipnote code{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+
+  /* ============ the recreated workflow ============ */
+  .demo-wrap{padding:30px 0 8px}
+  .cockpit{background:var(--c-base);border-radius:14px;border:1px solid #2b2f37;box-shadow:0 30px 70px rgba(0,0,0,.55);overflow:hidden;position:relative}
+  .chrome{display:flex;align-items:center;gap:7px;padding:11px 14px;background:oklch(0.175 0.011 255);border-bottom:1px solid var(--c-line)}
+  .chrome .dot{width:11px;height:11px;border-radius:50%;background:oklch(0.32 0.012 255)}
+  .chrome .addr{margin-left:10px;color:var(--c-dim);font-size:11px}
+  .cp-head{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--c-line);background:oklch(0.175 0.011 255)}
+  .cp-head img{width:22px;height:22px}
+  .cp-head .t{color:var(--c-ink);font-weight:600;font-size:13px}
+  .cp-head .s{color:var(--c-dim);font-size:9px;letter-spacing:.14em;text-transform:uppercase}
+  .pill{margin-left:auto;font-size:9px;letter-spacing:.08em;text-transform:uppercase;border-radius:999px;padding:3px 10px;border:1px solid oklch(0.7 0.1 78 / .45);color:oklch(0.82 0.1 78);background:oklch(0.7 0.1 78 / .13)}
+  .cp-body{display:grid;grid-template-columns:minmax(0,1fr) 235px;gap:1px;background:var(--c-line);min-height:428px}
+  .cp-main{background:var(--c-base);padding:14px;display:flex;flex-direction:column;gap:12px}
+  .cp-rail{background:var(--c-rail);padding:12px 10px;display:flex;flex-direction:column;gap:12px}
+
+  .dispatch{display:flex;gap:8px;align-items:center;border:1px solid oklch(0.29 0.014 255);border-radius:10px;padding:8px 10px;background:linear-gradient(oklch(0.205 0.012 255),oklch(0.185 0.011 255))}
+  .dispatch .lbl{font-size:8.5px;letter-spacing:.14em;color:var(--c-dim);text-transform:uppercase}
+  .dispatch .field{flex:1;background:var(--c-rail);border:1px solid oklch(0.3 0.014 255);border-radius:7px;min-height:28px;padding:5px 9px;font-size:11.5px;color:var(--c-ink)}
+  .dispatch .field .caret{display:inline-block;width:1px;height:12px;background:var(--cyan);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .dispatch .go{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:oklch(0.92 0.05 205);background:oklch(0.3 0.05 205);border:1px solid oklch(0.6 0.09 205 / .5);border-radius:7px;padding:7px 12px;transition:background .15s}
+  .dispatch .go.hit{background:oklch(0.45 0.08 205)}
+
+  .sect{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--c-muted);display:flex;align-items:center;gap:8px}
+  .sect::after{content:"";flex:1;height:1px;background:oklch(0.26 0.013 255)}
+  .sect.amber{color:var(--amber)}
+
+  .apron-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .wcard{border:1px solid oklch(0.26 0.013 255);border-radius:9px;background:oklch(0.175 0.01 255);padding:9px 11px;transition:border-color .3s}
+  .wcard.busy{border-color:oklch(0.31 0.015 255);background:linear-gradient(oklch(0.215 0.013 255),oklch(0.195 0.011 255))}
+  .wcard .row{display:flex;align-items:center;gap:7px}
+  .wcard .wdot{width:6px;height:6px;border-radius:50%;background:oklch(0.38 0.012 255)}
+  .wcard.busy .wdot{background:var(--cyan);box-shadow:0 0 8px oklch(0.75 0.1 205 / .6);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.35;transform:scale(.82)}}
+  .wcard .wid{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:oklch(0.9 0.008 255)}
+  .wcard .badge{margin-left:auto;font-size:7.5px;letter-spacing:.08em;text-transform:uppercase;color:oklch(0.78 0.05 255);border:1px solid oklch(0.7 0.06 255 / .34);background:oklch(0.7 0.06 255 / .12);border-radius:4px;padding:1px 6px}
+  .wcard .slot{margin-top:7px;padding-top:7px;border-top:1px solid oklch(0.25 0.012 255);min-height:34px;font-size:10.5px;color:var(--c-muted)}
+  .wcard .slot .issue{color:oklch(0.88 0.008 255)}
+  .wcard .slot .br{font-family:"JetBrains Mono",monospace;font-size:9.5px;color:oklch(0.6 0.03 205)}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:1px 7px;font-family:"JetBrains Mono",monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+  .chip i{width:4px;height:4px;border-radius:50%;background:currentColor}
+  .chip.working{color:var(--cyan);border:1px solid oklch(0.74 0.1 205/.42);background:oklch(0.74 0.1 205/.13)}
+  .chip.working i{animation:pulse 1.6s ease-in-out infinite}
+  .chip.review{color:var(--amber);border:1px solid oklch(0.8 0.11 78/.42);background:oklch(0.8 0.11 78/.13)}
+  .chip.merging{color:var(--violet);border:1px solid oklch(0.74 0.1 296/.42);background:oklch(0.74 0.1 296/.13)}
+  .chip.merging i{animation:pulse 1.6s ease-in-out infinite}
+  .chip.merged{color:oklch(0.7 0.045 152);border:1px solid oklch(0.62 0.045 152/.42);background:oklch(0.62 0.045 152/.13)}
+  .chip.queued{color:oklch(0.66 0.012 255);border:1px solid oklch(0.62 0.012 255/.42);background:oklch(0.62 0.012 255/.13)}
+
+  .review-zone{min-height:158px}
+  .review-empty{border:1px dashed oklch(0.3 0.013 255);border-radius:10px;padding:16px;font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:oklch(0.55 0.012 255);display:flex;gap:9px;align-items:center}
+  .review-empty b{width:7px;height:7px;border:1px solid oklch(0.4 0.012 255);border-radius:50%}
+  .rcard{border:1px solid oklch(0.32 0.02 78 / .6);border-radius:10px;background:var(--c-card);overflow:hidden;box-shadow:inset 0 1px 0 oklch(0.78 0.11 78/.25),0 8px 24px oklch(0.1 0.01 255/.5);opacity:0;transform:translateY(8px);transition:opacity .3s,transform .3s}
+  .rcard.show{opacity:1;transform:none}
+  .rcard .rh{display:flex;align-items:center;gap:9px;padding:8px 12px;background:linear-gradient(oklch(0.215 0.014 255),oklch(0.2 0.012 255));border-bottom:1px solid var(--c-line)}
+  .rcard .rh .tt{color:var(--c-ink);font-size:12px;font-weight:600}
+  .rcard .rh .who{margin-left:auto;font-family:"JetBrains Mono",monospace;font-size:9px;color:oklch(0.55 0.012 255)}
+  .rcard .diff{background:oklch(0.155 0.01 255);font-family:"JetBrains Mono",monospace;font-size:9.8px;line-height:1.75;padding:7px 0}
+  .rcard .diff div{padding:0 14px;white-space:pre}
+  .rcard .diff .h{color:oklch(0.74 0.09 205)}
+  .rcard .diff .a{background:oklch(0.5 0.09 152/.13);color:oklch(0.83 0.1 152)}
+  .rcard .diff .d{background:oklch(0.5 0.11 25/.13);color:oklch(0.78 0.11 25)}
+  .rcard .rf{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--c-line);background:oklch(0.205 0.012 255)}
+  .rcard .rf .rsn{flex:1;border:1px solid oklch(0.3 0.014 255);background:var(--c-rail);border-radius:6px;height:26px}
+  .abtn{font-family:"JetBrains Mono",monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;border-radius:6px;height:26px;display:inline-flex;align-items:center;padding:0 11px;transition:background .15s}
+  .abtn.back{color:oklch(0.78 0.1 45);border:1px solid oklch(0.36 0.05 45)}
+  .abtn.approve{color:oklch(0.88 0.09 152);background:oklch(0.28 0.05 152);border:1px solid oklch(0.42 0.07 152)}
+  .abtn.confirm{color:oklch(0.98 0.02 152);background:oklch(0.5 0.11 152);border:1px solid oklch(0.62 0.11 152)}
+  .abtn.hit{filter:brightness(1.45)}
+
+  .railh{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--c-muted);display:flex;align-items:center;gap:7px}
+  .railh::after{content:"";flex:1;height:1px;background:oklch(0.26 0.013 255)}
+  .queue{border:1px solid var(--c-line);border-radius:8px;background:oklch(0.19 0.011 255);overflow:hidden;min-height:30px}
+  .qrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--c-linedim);font-size:10px;color:oklch(0.89 0.008 255);opacity:0;transition:opacity .3s}
+  .qrow.show{opacity:1}.qrow:last-child{border-bottom:0}
+  .qrow .bar{width:2px;align-self:stretch;border-radius:2px;background:oklch(0.62 0.045 152)}
+  .qrow .qn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .feed{flex:1;border:1px solid var(--c-line);border-radius:8px;background:oklch(0.185 0.011 255);overflow:hidden;display:flex;flex-direction:column-reverse;min-height:120px;max-height:218px}
+  .frow{display:flex;gap:6px;padding:4px 8px;border-top:1px solid oklch(0.22 0.011 255);font-family:"JetBrains Mono",monospace;font-size:8.8px;color:oklch(0.72 0.012 255);animation:fin .25s ease both}
+  @keyframes fin{from{opacity:0;transform:translateY(4px)}}
+  .frow b{font-weight:500}
+  .frow .k205{color:oklch(0.82 0.07 205)}.frow .k78{color:oklch(0.82 0.07 78)}
+  .frow .k152{color:oklch(0.82 0.07 152)}.frow .k296{color:oklch(0.82 0.07 296)}
+  .frow .k268{color:oklch(0.82 0.07 268)}.frow .k255{color:oklch(0.8 0.02 255)}
+
+  .handoff{position:absolute;inset:auto 0 0 0;transform:translateY(100%);transition:transform .45s cubic-bezier(.2,.9,.25,1);background:linear-gradient(oklch(0.24 0.05 152),oklch(0.2 0.04 152));border-top:1px solid oklch(0.5 0.09 152/.5);padding:13px 18px;color:oklch(0.93 0.03 152);font-size:12.5px;display:flex;gap:10px;align-items:center}
+  .handoff.show{transform:none}
+  .handoff .mono{font-size:10px;opacity:.8}
+
+  #cursor{position:absolute;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 0 0 2px rgba(20,22,26,.55), 0 2px 8px rgba(0,0,0,.5);z-index:5;pointer-events:none;transition:left .6s cubic-bezier(.3,.7,.3,1),top .6s cubic-bezier(.3,.7,.3,1),transform .12s;opacity:0}
+  #cursor.on{opacity:1}
+  #cursor.click{transform:scale(.6)}
+
+  .caption{display:flex;align-items:center;gap:12px;margin-top:14px;justify-content:center;min-height:28px}
+  .caption .step{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--clay)}
+  .caption .txt{font-size:15px;color:var(--ink-soft)}
+  .replay{margin-left:8px;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:none;border:1px solid var(--line);border-radius:6px;padding:4px 10px;color:var(--ink-faint);cursor:pointer}
+  .replay:hover{color:var(--canvas);border-color:var(--canvas)}
+
+  /* ============ marketing sections ============ */
+  section.block{padding:64px 0 8px}
+  section.block h2{font-size:28px;letter-spacing:-.02em;font-weight:600}
+  section.block p.lead{color:var(--ink-soft);max-width:640px;margin-top:10px}
+  .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px}
+  .pillar{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
+  .pillar .num{font-family:"JetBrains Mono",monospace;color:var(--clay);font-size:11px;letter-spacing:.1em}
+  .pillar h3{margin:8px 0 8px;font-size:17px;font-weight:600}
+  .pillar p{font-size:14px;color:var(--ink-soft)}
+  .topology{margin-top:28px;background:var(--ink);border:1px solid var(--line);border-radius:14px;padding:26px;display:flex;justify-content:center}
+  .runners{margin-top:24px;width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:14px}
+  .runners th,.runners td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .runners th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);background:#15171c}
+  .runners td{color:var(--ink-soft)}
+  .runners tr:last-child td{border-bottom:0}
+  .runners code{font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--canvas);background:var(--page);border:1px solid var(--line);border-radius:5px;padding:1px 7px}
+  .quick{margin-top:24px;background:var(--ink);color:var(--canvas);border:1px solid var(--line);border-radius:14px;padding:22px 26px;font-family:"JetBrains Mono",monospace;font-size:13.5px;line-height:2}
+  .quick .c{color:#8b8f98}
+  .quick .clay{color:#d99567}
+  footer{margin-top:80px;border-top:1px solid var(--line);padding:26px 0 40px;font-size:13px;color:var(--ink-faint)}
+  footer .wrap{display:flex;gap:18px;align-items:center}
+  footer a{color:var(--ink-soft)}
+  @media (max-width:820px){
+    .pillars{grid-template-columns:1fr}
+    .cp-body{grid-template-columns:1fr}.cp-rail{display:none}
+    .apron-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <img src="brand/mark-reverse.svg" alt="" width="30" height="30">
+    <span class="wordmark">apronagents</span>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#runners">Runners</a>
+      <a href="#start">Get started</a>
+      <a class="gh" href="https://github.com/Ut8v/apronagents">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero wrap">
+  <h1>A crew of coding agents.<br>One <em>merge cockpit</em>. Your call on every chunk.</h1>
+  <p class="sub">Apron Agents splits a task across agents that each work in an isolated, disposable
+  sandbox git — then merges their work one reviewed chunk at a time. Your real remote is never touched.</p>
+  <div class="cta">
+    <a class="btn primary" href="#start">Get started</a>
+    <a class="btn ghost" href="https://github.com/Ut8v/apronagents">View on GitHub</a>
+  </div>
+</div>
+
+<!-- ================= animated cockpit ================= -->
+<div class="demo-wrap wrap">
+  <div class="cockpit" id="cockpit">
+    <div class="chrome">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="addr mono">http://127.0.0.1:4650 — your machine</span>
+    </div>
+    <div class="cp-head">
+      <img src="brand/mark-reverse.svg" alt="">
+      <span class="t">Apron Agents</span>
+      <span class="s mono">merge cockpit</span>
+      <span class="pill mono">supervised</span>
+    </div>
+    <div class="cp-body">
+      <div class="cp-main">
+        <div class="dispatch">
+          <span class="lbl mono">dispatch</span>
+          <div class="field mono" id="taskField"><span class="caret"></span></div>
+          <span class="go mono" id="goBtn">start</span>
+        </div>
+        <div class="sect mono">apron — 2 agents</div>
+        <div class="apron-grid">
+          <div class="wcard" id="w1">
+            <div class="row"><span class="wdot"></span><span class="wid">worker-1</span><span class="badge mono">shipped</span></div>
+            <div class="slot" id="w1slot">— waiting for an issue</div>
+          </div>
+          <div class="wcard" id="w2">
+            <div class="row"><span class="wdot"></span><span class="wid">worker-2</span><span class="badge mono">shipped</span></div>
+            <div class="slot" id="w2slot">— waiting for an issue</div>
+          </div>
+        </div>
+        <div class="sect amber mono" id="reviewSect">awaiting review — clearance required</div>
+        <div class="review-zone" id="reviewZone">
+          <div class="review-empty"><b></b>pattern clear — no reviews holding</div>
+        </div>
+      </div>
+      <div class="cp-rail">
+        <div class="railh mono">merge queue</div>
+        <div class="queue" id="queue"></div>
+        <div class="railh mono">live feed</div>
+        <div class="feed" id="feed"></div>
+      </div>
+    </div>
+    <div class="handoff" id="handoff">
+      <strong>Handoff complete.</strong>
+      <span>3 files copied into your working directory — apron stopped.</span>
+      <span class="mono" style="margin-left:auto">real remote: untouched ✓</span>
+    </div>
+    <div id="cursor"></div>
+  </div>
+  <div class="caption">
+    <span class="step mono" id="capStep">01</span>
+    <span class="txt" id="capText">You describe the task once.</span>
+    <button class="replay" id="replayBtn">↻ replay</button>
+  </div>
+</div>
+
+<!-- ================= how ================= -->
+<section class="block wrap" id="how">
+  <h2>Three things, working together</h2>
+  <p class="lead">Plenty of tools run agents. Apron is about what happens <strong>between</strong> the agents and your codebase.</p>
+  <div class="pillars">
+    <div class="pillar">
+      <span class="num mono">01</span>
+      <h3>A disposable sandbox git</h3>
+      <p>On launch, Apron creates a bare repo in a temp dir — a fully local "fake GitHub."
+      Every worker codes in its own clone and pushes branches there. One audited module is the
+      only path to git, so nothing half-baked can ever reach your real remote.</p>
+    </div>
+    <div class="pillar">
+      <span class="num mono">02</span>
+      <h3>The merge cockpit</h3>
+      <p>A live air-traffic-control view of every agent, plus a chunk-by-chunk review gate.
+      Small, focused diffs; approve or send back with a reason; merges land one at a time with
+      tests on every candidate. Autonomous mode is the same machinery — merges on green.</p>
+    </div>
+    <div class="pillar">
+      <span class="num mono">03</span>
+      <h3>Clone and run in one command</h3>
+      <p><span class="mono">./run start</span> sets up the environment, boots everything, and opens
+      the dashboard. When the task completes, the merged result is copied into your working
+      directory — the only bridge to reality — and the tool stops.</p>
+    </div>
+  </div>
+
+  <div class="topology">
+    <svg viewBox="0 0 760 240" width="100%" style="max-width:760px" font-family="JetBrains Mono, monospace">
+      <defs>
+        <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0 0 L8 4 L0 8 z" fill="#8b8f98"/>
+        </marker>
+      </defs>
+      <!-- clones -->
+      <g font-size="11" fill="#F5F4F0">
+        <rect x="20" y="24" width="150" height="34" rx="7" fill="none" stroke="#4a4e57"/>
+        <text x="95" y="45" text-anchor="middle">worker-1 clone</text>
+        <rect x="20" y="72" width="150" height="34" rx="7" fill="none" stroke="#4a4e57"/>
+        <text x="95" y="93" text-anchor="middle">worker-2 clone</text>
+        <rect x="20" y="120" width="150" height="34" rx="7" fill="none" stroke="#4a4e57"/>
+        <text x="95" y="141" text-anchor="middle">merge controller</text>
+      </g>
+      <line x1="170" y1="41" x2="288" y2="76" stroke="#8b8f98" marker-end="url(#arr)"/>
+      <line x1="170" y1="89" x2="288" y2="89" stroke="#8b8f98" marker-end="url(#arr)"/>
+      <line x1="170" y1="137" x2="288" y2="102" stroke="#8b8f98" marker-end="url(#arr)"/>
+      <!-- bare repo -->
+      <rect x="292" y="58" width="180" height="62" rx="9" fill="#B0673C"/>
+      <text x="382" y="84" text-anchor="middle" font-size="12" fill="#14161A" font-weight="700">sandbox bare repo</text>
+      <text x="382" y="102" text-anchor="middle" font-size="10" fill="#14161A">temp dir · destroyed on exit</text>
+      <!-- handoff -->
+      <line x1="472" y1="89" x2="560" y2="89" stroke="#8b8f98" stroke-dasharray="5 5" marker-end="url(#arr)"/>
+      <text x="516" y="78" text-anchor="middle" font-size="9.5" fill="#8b8f98">handoff (files only)</text>
+      <rect x="564" y="58" width="176" height="62" rx="9" fill="none" stroke="#F5F4F0"/>
+      <text x="652" y="84" text-anchor="middle" font-size="12" fill="#F5F4F0">your working dir</text>
+      <text x="652" y="102" text-anchor="middle" font-size="10" fill="#8b8f98">you test, you commit</text>
+      <!-- forbidden remote -->
+      <line x1="652" y1="120" x2="652" y2="176" stroke="#8b8f98" stroke-dasharray="5 5" marker-end="url(#arr)"/>
+      <text x="668" y="152" font-size="9.5" fill="#8b8f98">you decide</text>
+      <rect x="564" y="180" width="176" height="40" rx="9" fill="none" stroke="#4a4e57"/>
+      <text x="652" y="205" text-anchor="middle" font-size="11" fill="#8b8f98">your real remote</text>
+      <text x="382" y="205" text-anchor="middle" font-size="11" fill="#B0673C">✕ the tool never crosses this line</text>
+      <line x1="472" y1="120" x2="560" y2="188" stroke="#B0673C" stroke-dasharray="3 6" opacity=".65"/>
+      <line x1="530" y1="146" x2="512" y2="164" stroke="#B0673C" stroke-width="2"/>
+      <line x1="512" y1="146" x2="530" y2="164" stroke="#B0673C" stroke-width="2"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= runners ================= -->
+<section class="block wrap" id="runners">
+  <h2>Bring the plan you already pay for</h2>
+  <p class="lead">Workers are pluggable. Use your Claude Code subscription, your ChatGPT plan,
+  a raw API key — or try the whole flow with no account at all.</p>
+  <table class="runners">
+    <tr><th>runner</th><th>powered by</th><th>needs</th></tr>
+    <tr><td><code>claude-code</code></td><td>the <code>claude</code> CLI, headless</td><td>any Claude plan — whatever Claude Code already uses</td></tr>
+    <tr><td><code>codex</code></td><td>the <code>codex</code> CLI, headless</td><td>a ChatGPT plan or OpenAI key</td></tr>
+    <tr><td><code>api</code></td><td>the Anthropic API directly</td><td><code>ANTHROPIC_API_KEY</code></td></tr>
+    <tr><td><code>demo</code></td><td>fake in-process agents</td><td>nothing — kick the tires account-free</td></tr>
+  </table>
+  <p class="lead" style="margin-top:14px;font-size:14px">Agents themselves are editable markdown files, not code —
+  Apron discovers your existing <span class="mono">.claude/agents/</span> definitions read-only and hot-reloads
+  edits from its own overlay.</p>
+</section>
+
+<!-- ================= quickstart ================= -->
+<section class="block wrap" id="start">
+  <h2>Get started</h2>
+  <div class="quick">
+    <div><span class="c"># clone and run — one command</span></div>
+    <div><span class="clay">$</span> git clone https://github.com/Ut8v/apronagents && cd apronagents</div>
+    <div><span class="clay">$</span> ./run start</div>
+    <div>&nbsp;</div>
+    <div><span class="c"># or install from PyPI</span></div>
+    <div><span class="clay">$</span> pip install apronagents && apron start</div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <img src="brand/mark-reverse.svg" alt="" width="22" height="22">
+    <span>apronagents — MIT licensed</span>
+    <a style="margin-left:auto" href="https://github.com/Ut8v/apronagents">GitHub</a>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const taskField = $("taskField"), goBtn = $("goBtn"), feed = $("feed"),
+        queue = $("queue"), reviewZone = $("reviewZone"), handoff = $("handoff"),
+        cursor = $("cursor"), cockpit = $("cockpit"),
+        capStep = $("capStep"), capText = $("capText");
+  const TASK = "Add rate limiting to the API client";
+  let timers = [], running = false;
+
+  const wait = ms => new Promise(r => timers.push(setTimeout(r, ms)));
+  const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
+
+  const cap = (step, text) => { capStep.textContent = step; capText.textContent = text; };
+  const fev = (kind, hue, rest) => {
+    const row = document.createElement("div");
+    row.className = "frow";
+    row.innerHTML = `<b class="k${hue}">${kind}</b><span>${rest}</span>`;
+    feed.prepend(row);
+    while (feed.children.length > 9) feed.lastChild.remove();
+  };
+  const worker = (id, html, busy) => {
+    const card = $(id); card.classList.toggle("busy", !!busy);
+    $(id + "slot").innerHTML = html;
+  };
+  const idleSlot = "— waiting for an issue";
+  const workingSlot = (title, branch) =>
+    `<span class="chip working"><i></i>in progress</span><div class="issue">${title}</div><div class="br">${branch}</div>`;
+  const reviewSlot = (title, branch) =>
+    `<span class="chip review"><i></i>in review</span><div class="issue">${title}</div><div class="br">${branch}</div>`;
+
+  const qrow = name => {
+    const row = document.createElement("div");
+    row.className = "qrow";
+    row.innerHTML = `<span class="bar"></span><span class="qn">${name}</span><span class="chip merged"><i></i>merged</span>`;
+    queue.appendChild(row);
+    requestAnimationFrame(() => row.classList.add("show"));
+  };
+
+  const moveCursorTo = async el => {
+    const c = cockpit.getBoundingClientRect(), b = el.getBoundingClientRect();
+    cursor.style.left = (b.left - c.left + b.width / 2 - 7) + "px";
+    cursor.style.top  = (b.top  - c.top  + b.height / 2 - 7) + "px";
+    cursor.classList.add("on");
+    await wait(650);
+  };
+  const click = async el => {
+    cursor.classList.add("click"); el.classList.add("hit");
+    await wait(140);
+    cursor.classList.remove("click"); el.classList.remove("hit");
+    await wait(160);
+  };
+
+  const showReview = (title, branch, who, diff) => {
+    reviewZone.innerHTML = `
+      <div class="rcard" id="rc">
+        <div class="rh"><span class="chip review"><i></i>in review</span>
+          <span class="tt">${title}</span><span class="who">${branch} · by ${who}</span></div>
+        <div class="diff">${diff}</div>
+        <div class="rf"><div class="rsn"></div>
+          <span class="abtn back">send back</span>
+          <span class="abtn approve" id="approveBtn">approve &amp; merge</span></div>
+      </div>`;
+    requestAnimationFrame(() => $("rc").classList.add("show"));
+  };
+  const emptyReview = () => {
+    reviewZone.innerHTML =
+      `<div class="review-empty"><b></b>pattern clear — no reviews holding</div>`;
+  };
+
+  const approveFlow = async (fast) => {
+    const approve = $("approveBtn");
+    await moveCursorTo(approve); await click(approve);
+    approve.outerHTML = `<span class="abtn confirm" id="confirmBtn">confirm merge</span>`;
+    const confirm = $("confirmBtn");
+    await moveCursorTo(confirm); await click(confirm);
+    cursor.classList.remove("on");
+    await wait(fast ? 200 : 350);
+  };
+
+  const mergeBeat = async (issue, branch) => {
+    fev("ReviewApproved", 152, issue); await wait(300);
+    fev("MergeStarted", 296, branch);
+    const chip = reviewZone.querySelector(".chip");
+    if (chip) { chip.className = "chip merging"; chip.innerHTML = "<i></i>merging"; }
+    await wait(900);
+    fev("TestsPassed", 152, issue); await wait(350);
+    fev("MergeSucceeded", 152, branch);
+    emptyReview(); qrow(issue);
+  };
+
+  async function play() {
+    if (running) return; running = true;
+    // reset
+    clearTimers();
+    taskField.innerHTML = `<span class="caret"></span>`;
+    feed.innerHTML = ""; queue.innerHTML = ""; emptyReview();
+    worker("w1", idleSlot, false); worker("w2", idleSlot, false);
+    handoff.classList.remove("show"); cursor.classList.remove("on");
+
+    // 1 — dispatch
+    cap("01", "You describe the task once.");
+    await wait(900);
+    for (let i = 1; i <= TASK.length; i++) {
+      taskField.innerHTML = TASK.slice(0, i) + `<span class="caret"></span>`;
+      await wait(26);
+    }
+    await wait(250);
+    await moveCursorTo(goBtn); await click(goBtn);
+    cursor.classList.remove("on");
+    fev("TaskReceived", 205, "t1");
+
+    // 2 — plan
+    cap("02", "The orchestrator splits it into small, dependency-ordered issues.");
+    await wait(800);
+    fev("TaskPlanned", 205, "3 issues");
+    fev("IssueQueued", 255, "limiter-core");
+    fev("IssueQueued", 255, "client-wiring · needs limiter-core");
+    fev("IssueQueued", 255, "docs");
+
+    // 3 — workers claim
+    await wait(900);
+    cap("03", "Workers code in isolated sandbox clones — never in your repo.");
+    fev("IssueClaimed", 268, "limiter-core → worker-1");
+    worker("w1", workingSlot("Add limiter core", "issue/limiter-core"), true);
+    await wait(400);
+    fev("IssueClaimed", 268, "docs → worker-2");
+    worker("w2", workingSlot("Document rate limits", "issue/docs"), true);
+    await wait(2100);
+
+    // 4 — first review
+    cap("04", "A small, focused diff asks for clearance. The click is yours.");
+    fev("ReviewOpened", 78, "limiter-core");
+    worker("w1", reviewSlot("Add limiter core", "issue/limiter-core"), false);
+    showReview("Add limiter core", "issue/limiter-core", "worker-1", `
+      <div class="h">limiter.py  @@ -0,0 +1,9 @@</div>
+      <div class="a">+class RateLimiter:</div>
+      <div class="a">+    def __init__(self, rate: int, per: float):</div>
+      <div class="a">+        self.tokens, self.rate, self.per = rate, rate, per</div>
+      <div class="a">+    def acquire(self) -&gt; bool:</div>
+      <div class="a">+        self._refill()</div>
+      <div class="a">+        ...</div>`);
+    await wait(1400);
+    await approveFlow(false);
+
+    // 5 — serial merge
+    cap("05", "Approved chunks merge one at a time, tests on every candidate.");
+    await mergeBeat("limiter-core", "issue/limiter-core");
+    worker("w1", idleSlot, false);
+    await wait(500);
+
+    // 6 — dependency unlock
+    cap("06", "Merging unblocks the issues that depended on it.");
+    fev("IssueClaimed", 268, "client-wiring → worker-1");
+    worker("w1", workingSlot("Wire limiter into client", "issue/client-wiring"), true);
+    await wait(1700);
+    fev("ReviewOpened", 78, "docs");
+    worker("w2", reviewSlot("Document rate limits", "issue/docs"), false);
+    showReview("Document rate limits", "issue/docs", "worker-2", `
+      <div class="h">README.md  @@ -12,2 +12,6 @@</div>
+      <div class="a">+## Rate limits</div>
+      <div class="a">+Requests are limited client-side via a token bucket.</div>
+      <div class="d">-TODO: document limits</div>`);
+    await wait(1000);
+    await approveFlow(true);
+    await mergeBeat("docs", "issue/docs");
+    worker("w2", idleSlot, false);
+    await wait(700);
+    fev("ReviewOpened", 78, "client-wiring");
+    worker("w1", reviewSlot("Wire limiter into client", "issue/client-wiring"), false);
+    showReview("Wire limiter into client", "issue/client-wiring", "worker-1", `
+      <div class="h">client.py  @@ -8,1 +8,4 @@</div>
+      <div class="a">+from limiter import RateLimiter</div>
+      <div class="a">+_limiter = RateLimiter(rate=10, per=1.0)</div>
+      <div class="d">-    return self._request(path)</div>
+      <div class="a">+    _limiter.acquire(); return self._request(path)</div>`);
+    await wait(1000);
+    await approveFlow(true);
+    await mergeBeat("client-wiring", "issue/client-wiring");
+    worker("w1", idleSlot, false);
+
+    // 7 — handoff
+    await wait(600);
+    cap("07", "All green → the result lands in your working dir, and apron stops.");
+    fev("TaskCompleted", 152, "t1");
+    fev("HandoffCompleted", 268, "3 files → your working dir");
+    handoff.classList.add("show");
+    await wait(4200);
+    handoff.classList.remove("show");
+    await wait(700);
+    running = false;
+    play();
+  }
+
+  $("replayBtn").addEventListener("click", () => { clearTimers(); running = false; play(); });
+  const io = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) { io.disconnect(); play(); }
+  }, { threshold: 0.35 });
+  io.observe(cockpit);
+})();
+</script>
+</body>
+</html>
