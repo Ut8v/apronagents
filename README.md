@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/svg/mark-reverse.svg">
+    <img src="assets/brand/svg/mark.svg" alt="Apron Agents" width="88" height="88">
+  </picture>
+</p>
+
 # Apron Agents
 
 A local, one-command tool that breaks a coding task into small independent issues,
