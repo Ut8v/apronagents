@@ -56,6 +56,13 @@ class Settings:
     user_dir: Path = field(default_factory=lambda: Path.home())
 
     @property
+    def dashboard_url(self) -> str:
+        """The URL shown to humans (and opened in the browser). The server
+        still binds to ``host`` as-is; this only prettifies loopback."""
+        shown = "localhost" if self.host in ("127.0.0.1", "0.0.0.0") else self.host
+        return f"http://{shown}:{self.port}"
+
+    @property
     def project_apron_dir(self) -> Path:
         """Project-level overlay: ``.apron/`` in the working dir. Writable."""
         return self.working_dir / ".apron"

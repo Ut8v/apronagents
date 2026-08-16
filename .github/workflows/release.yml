@@ -87,3 +87,6 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
           generate_release_notes: true
+          # Everything before 1.0.0 is a beta: mark it as a pre-release on
+          # GitHub. Flips off by itself at v1.0.0.
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}

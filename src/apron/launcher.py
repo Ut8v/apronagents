@@ -124,12 +124,12 @@ class Launcher:
         self._watcher_task = asyncio.create_task(self._watcher.run())
         await self._start_server()
         log.info(
-            "apron ready: mode=%s, runner=%s, %d workers, dashboard on http://%s:%d",
+            "apron ready: mode=%s, runner=%s, %d workers, dashboard on %s",
             settings.mode, self._backend_name, len(self.workers),
-            settings.host, settings.port,
+            settings.dashboard_url,
         )
         if settings.open_browser:
-            webbrowser.open(f"http://{settings.host}:{settings.port}")
+            webbrowser.open(settings.dashboard_url)
         if self._initial_task:
             task_id = uuid.uuid4().hex[:8]
             await self.bus.publish(
@@ -250,9 +250,7 @@ def launch(settings: Settings, initial_task: str | None = None) -> None:
     async def _run() -> None:
         launcher = Launcher(settings, initial_task=initial_task)
         # The terminal that dispatched the run narrates it, like the dashboard.
-        reporter = ConsoleReporter(
-            dashboard_url=f"http://{settings.host}:{settings.port}"
-        )
+        reporter = ConsoleReporter(dashboard_url=settings.dashboard_url)
         reporter.attach(launcher.bus)
         try:
             await launcher.start()
