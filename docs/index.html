@@ -114,6 +114,23 @@
   @keyframes blink{50%{opacity:0}}
   .dispatch .go{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:oklch(0.92 0.05 205);background:oklch(0.3 0.05 205);border:1px solid oklch(0.6 0.09 205 / .5);border-radius:7px;padding:7px 12px;transition:background .15s}
   .dispatch .go.hit{background:oklch(0.45 0.08 205)}
+  .dispatch .dollar{color:oklch(0.75 0.1 205);font-size:12px;padding-left:2px}
+  .dispatch-hint{display:flex;justify-content:space-between;margin-top:5px;font-size:8.5px;color:oklch(0.5 0.012 255)}
+  .dispatch-hint b{color:oklch(0.66 0.05 205);font-weight:500}
+
+  .wact{display:none;margin-top:6px;padding-top:6px;border-top:1px solid oklch(0.25 0.012 255);font-family:"JetBrains Mono",monospace;font-size:9px;color:oklch(0.74 0.06 205);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wact.on{display:block}
+  .wact::before{content:"▸ ";opacity:.7}
+
+  /* feature callouts over the recreation */
+  #callout{position:absolute;z-index:6;max-width:230px;background:#F5F4F0;color:#14161A;border-radius:9px;padding:9px 12px;font-size:11.5px;line-height:1.45;font-family:"Space Grotesk",sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(4px);transition:opacity .3s,transform .3s,left .4s,top .4s;pointer-events:none}
+  #callout.on{opacity:1;transform:none}
+  #callout .co-tag{display:block;font-family:"JetBrains Mono",monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#B0673C;margin-bottom:3px}
+  #callout::after{content:"";position:absolute;width:10px;height:10px;background:#F5F4F0;transform:rotate(45deg)}
+  #callout.arrow-left::after{left:-5px;top:calc(50% - 5px)}
+  #callout.arrow-right::after{right:-5px;top:calc(50% - 5px)}
+  #callout.arrow-up::after{top:-5px;left:calc(50% - 5px)}
+  #callout.arrow-down::after{bottom:-5px;left:calc(50% - 5px)}
 
   .sect{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--c-muted);display:flex;align-items:center;gap:8px}
   .sect::after{content:"";flex:1;height:1px;background:oklch(0.26 0.013 255)}
@@ -261,10 +278,17 @@
     </div>
     <div class="cp-body">
       <div class="cp-main">
-        <div class="dispatch">
-          <span class="lbl mono">dispatch</span>
-          <div class="field mono" id="taskField"><span class="caret"></span></div>
-          <span class="go mono" id="goBtn">start</span>
+        <div>
+          <div class="dispatch">
+            <span class="lbl mono">dispatch</span>
+            <span class="dollar mono">$</span>
+            <div class="field mono" id="taskField"><span class="caret"></span></div>
+            <span class="go mono" id="goBtn">start</span>
+          </div>
+          <div class="dispatch-hint mono">
+            <span>enter dispatches · shift+enter for a new line</span>
+            <span>prefer your terminal? <b>apron task "…"</b></span>
+          </div>
         </div>
         <div class="sect mono">apron — 2 agents</div>
         <div class="apron-grid">
@@ -289,6 +313,7 @@
         <div class="feed" id="feed"></div>
       </div>
     </div>
+    <div id="callout"><span class="co-tag" id="coTag"></span><span id="coText"></span></div>
     <div class="handoff" id="handoff">
       <strong>Handoff complete.</strong>
       <span>3 files copied into your working directory — apron stopped.</span>
@@ -332,43 +357,72 @@
   </div>
 
   <div class="topology">
-    <svg viewBox="0 0 760 240" width="100%" style="max-width:760px" font-family="JetBrains Mono, monospace">
+    <svg viewBox="0 0 880 400" width="100%" style="max-width:880px" font-family="JetBrains Mono, monospace">
       <defs>
         <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
-          <path d="M0 0 L8 4 L0 8 z" fill="#8b8f98"/>
+          <path d="M0 0 L8 4 L0 8 z" fill="#b6bac2"/>
+        </marker>
+        <marker id="arrclay" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M0 0 L8 4 L0 8 z" fill="#B0673C"/>
         </marker>
       </defs>
-      <!-- clones -->
-      <g font-size="11" fill="#F5F4F0">
-        <rect x="20" y="24" width="150" height="34" rx="7" fill="none" stroke="#4a4e57"/>
-        <text x="95" y="45" text-anchor="middle">worker-1 clone</text>
-        <rect x="20" y="72" width="150" height="34" rx="7" fill="none" stroke="#4a4e57"/>
-        <text x="95" y="93" text-anchor="middle">worker-2 clone</text>
-        <rect x="20" y="120" width="150" height="34" rx="7" fill="none" stroke="#4a4e57"/>
-        <text x="95" y="141" text-anchor="middle">merge controller</text>
+
+      <!-- the disposable sandbox -->
+      <rect x="14" y="30" width="486" height="262" rx="12" fill="none" stroke="#B0673C" stroke-dasharray="7 5"/>
+      <text x="30" y="20" font-size="11.5" fill="#B0673C" letter-spacing="1">THE DISPOSABLE SANDBOX</text>
+      <text x="30" y="266" font-size="10" fill="#8b8f98">a bare git repo in a temp dir — a fully local "fake GitHub".</text>
+      <text x="30" y="280" font-size="10" fill="#8b8f98">created at launch, destroyed when apron stops. no network, no accounts.</text>
+
+      <g font-size="11.5" fill="#F5F4F0">
+        <rect x="34" y="52" width="168" height="52" rx="8" fill="none" stroke="#7a8391"/>
+        <text x="118" y="74" text-anchor="middle">worker-1 clone</text>
+        <text x="118" y="91" text-anchor="middle" font-size="9.5" fill="#8b8f98">an agent codes here</text>
+        <rect x="34" y="118" width="168" height="52" rx="8" fill="none" stroke="#7a8391"/>
+        <text x="118" y="140" text-anchor="middle">worker-2 clone</text>
+        <text x="118" y="157" text-anchor="middle" font-size="9.5" fill="#8b8f98">another agent, isolated</text>
+        <rect x="34" y="196" width="168" height="52" rx="8" fill="none" stroke="#7a8391"/>
+        <text x="118" y="218" text-anchor="middle">merge controller</text>
+        <text x="118" y="235" text-anchor="middle" font-size="9.5" fill="#8b8f98">merges + runs tests</text>
       </g>
-      <line x1="170" y1="41" x2="288" y2="76" stroke="#8b8f98" marker-end="url(#arr)"/>
-      <line x1="170" y1="89" x2="288" y2="89" stroke="#8b8f98" marker-end="url(#arr)"/>
-      <line x1="170" y1="137" x2="288" y2="102" stroke="#8b8f98" marker-end="url(#arr)"/>
-      <!-- bare repo -->
-      <rect x="292" y="58" width="180" height="62" rx="9" fill="#B0673C"/>
-      <text x="382" y="84" text-anchor="middle" font-size="12" fill="#14161A" font-weight="700">sandbox bare repo</text>
-      <text x="382" y="102" text-anchor="middle" font-size="10" fill="#14161A">temp dir · destroyed on exit</text>
-      <!-- handoff -->
-      <line x1="472" y1="89" x2="560" y2="89" stroke="#8b8f98" stroke-dasharray="5 5" marker-end="url(#arr)"/>
-      <text x="516" y="78" text-anchor="middle" font-size="9.5" fill="#8b8f98">handoff (files only)</text>
-      <rect x="564" y="58" width="176" height="62" rx="9" fill="none" stroke="#F5F4F0"/>
-      <text x="652" y="84" text-anchor="middle" font-size="12" fill="#F5F4F0">your working dir</text>
-      <text x="652" y="102" text-anchor="middle" font-size="10" fill="#8b8f98">you test, you commit</text>
-      <!-- forbidden remote -->
-      <line x1="652" y1="120" x2="652" y2="176" stroke="#8b8f98" stroke-dasharray="5 5" marker-end="url(#arr)"/>
-      <text x="668" y="152" font-size="9.5" fill="#8b8f98">you decide</text>
-      <rect x="564" y="180" width="176" height="40" rx="9" fill="none" stroke="#4a4e57"/>
-      <text x="652" y="205" text-anchor="middle" font-size="11" fill="#8b8f98">your real remote</text>
-      <text x="382" y="205" text-anchor="middle" font-size="11" fill="#B0673C">✕ the tool never crosses this line</text>
-      <line x1="472" y1="120" x2="560" y2="188" stroke="#B0673C" stroke-dasharray="3 6" opacity=".65"/>
-      <line x1="530" y1="146" x2="512" y2="164" stroke="#B0673C" stroke-width="2"/>
-      <line x1="512" y1="146" x2="530" y2="164" stroke="#B0673C" stroke-width="2"/>
+
+      <!-- flows into/out of the bare repo -->
+      <line x1="202" y1="72" x2="308" y2="120" stroke="#b6bac2" marker-end="url(#arr)"/>
+      <line x1="202" y1="144" x2="308" y2="150" stroke="#b6bac2" marker-end="url(#arr)"/>
+      <text x="252" y="64" text-anchor="middle" font-size="9.5" fill="#b6bac2">push issue branches</text>
+      <line x1="308" y1="185" x2="202" y2="216" stroke="#b6bac2" marker-end="url(#arr)"/>
+      <line x1="202" y1="230" x2="308" y2="200" stroke="#b6bac2" marker-end="url(#arr)"/>
+      <text x="243" y="250" font-size="9.5" fill="#b6bac2">merge approved chunks, one at a time</text>
+
+      <rect x="312" y="112" width="168" height="82" rx="10" fill="#B0673C"/>
+      <text x="396" y="142" text-anchor="middle" font-size="12.5" fill="#14161A" font-weight="700">sandbox bare repo</text>
+      <text x="396" y="160" text-anchor="middle" font-size="9.5" fill="#14161A">every branch + main,</text>
+      <text x="396" y="174" text-anchor="middle" font-size="9.5" fill="#14161A">never on a real server</text>
+
+      <!-- the one bridge -->
+      <line x1="500" y1="153" x2="612" y2="153" stroke="#b6bac2" stroke-dasharray="6 5" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="556" y="136" text-anchor="middle" font-size="10" fill="#F5F4F0">the handoff</text>
+      <text x="556" y="172" text-anchor="middle" font-size="8.5" fill="#8b8f98">merged files copied,</text>
+      <text x="556" y="184" text-anchor="middle" font-size="8.5" fill="#8b8f98">the only bridge</text>
+      <text x="556" y="196" text-anchor="middle" font-size="8.5" fill="#8b8f98">to reality</text>
+
+      <rect x="616" y="112" width="230" height="82" rx="10" fill="none" stroke="#F5F4F0" stroke-width="1.5"/>
+      <text x="731" y="142" text-anchor="middle" font-size="12.5" fill="#F5F4F0">your working directory</text>
+      <text x="731" y="160" text-anchor="middle" font-size="9.5" fill="#8b8f98">the result lands here when all</text>
+      <text x="731" y="174" text-anchor="middle" font-size="9.5" fill="#8b8f98">chunks are merged. you test it.</text>
+
+      <!-- your git push, below the barrier -->
+      <line x1="731" y1="194" x2="731" y2="330" stroke="#b6bac2" stroke-dasharray="6 5" marker-end="url(#arr)"/>
+      <text x="745" y="250" font-size="10" fill="#F5F4F0">git push</text>
+      <text x="745" y="264" font-size="9" fill="#8b8f98">by you, by hand,</text>
+      <text x="745" y="277" font-size="9" fill="#8b8f98">when you're happy</text>
+
+      <!-- the barrier -->
+      <text x="20" y="310" font-size="10.5" fill="#B0673C">✕ apron never crosses this line — it cannot configure, fetch from, or push to any real remote</text>
+      <line x1="14" y1="322" x2="588" y2="322" stroke="#B0673C" stroke-width="2" stroke-dasharray="10 6"/>
+
+      <rect x="616" y="334" width="230" height="52" rx="10" fill="none" stroke="#7a8391"/>
+      <text x="731" y="357" text-anchor="middle" font-size="12" fill="#8b8f98">your real remote</text>
+      <text x="731" y="374" text-anchor="middle" font-size="9.5" fill="#8b8f98">github / gitlab — only you touch it</text>
     </svg>
   </div>
 </section>
@@ -438,9 +492,35 @@
   };
   const idleSlot = "— waiting for an issue";
   const workingSlot = (title, branch) =>
-    `<span class="chip working"><i></i>in progress</span><div class="issue">${title}</div><div class="br">${branch}</div>`;
+    `<span class="chip working"><i></i>in progress</span><div class="issue">${title}</div><div class="br">${branch}</div><div class="wact"></div>`;
   const reviewSlot = (title, branch) =>
     `<span class="chip review"><i></i>in review</span><div class="issue">${title}</div><div class="br">${branch}</div>`;
+  const setActivity = (slotId, note) => {
+    const el = document.querySelector(`#${slotId} .wact`);
+    if (el) { el.textContent = note; el.classList.add("on"); }
+  };
+
+  const calloutEl = $("callout"), coTag = $("coTag"), coText = $("coText");
+  const showCallout = (selector, tag, text, side = "right") => {
+    const target = document.querySelector(selector);
+    if (!target) return;
+    coTag.textContent = tag; coText.textContent = text;
+    calloutEl.classList.remove("arrow-left", "arrow-right", "arrow-up", "arrow-down");
+    calloutEl.classList.add(
+      { right: "arrow-left", left: "arrow-right", top: "arrow-down", bottom: "arrow-up" }[side],
+      "on",
+    );
+    const c = cockpit.getBoundingClientRect(), b = target.getBoundingClientRect();
+    const cw = calloutEl.offsetWidth, ch = calloutEl.offsetHeight;
+    let left, top;
+    if (side === "right") { left = b.right - c.left + 12; top = b.top - c.top + b.height / 2 - ch / 2; }
+    else if (side === "left") { left = b.left - c.left - cw - 12; top = b.top - c.top + b.height / 2 - ch / 2; }
+    else if (side === "top") { left = b.left - c.left + b.width / 2 - cw / 2; top = b.top - c.top - ch - 12; }
+    else { left = b.left - c.left + b.width / 2 - cw / 2; top = b.bottom - c.top + 12; }
+    calloutEl.style.left = Math.max(8, Math.min(left, c.width - cw - 8)) + "px";
+    calloutEl.style.top = Math.max(8, Math.min(top, c.height - ch - 8)) + "px";
+  };
+  const hideCallout = () => calloutEl.classList.remove("on");
 
   const qrow = name => {
     const row = document.createElement("div");
@@ -510,10 +590,16 @@
     feed.innerHTML = ""; queue.innerHTML = ""; emptyReview();
     worker("w1", idleSlot, false); worker("w2", idleSlot, false);
     handoff.classList.remove("show"); cursor.classList.remove("on");
+    hideCallout();
 
     // 1 — dispatch
     cap("01", "You describe the task once.");
     await wait(900);
+    showCallout(
+      ".dispatch", "dispatch anywhere",
+      'Type it here — or from any terminal: apron task "…". Both feed the same run.',
+      "bottom",
+    );
     for (let i = 1; i <= TASK.length; i++) {
       taskField.innerHTML = TASK.slice(0, i) + `<span class="caret"></span>`;
       await wait(26);
@@ -521,6 +607,7 @@
     await wait(250);
     await moveCursorTo(goBtn); await click(goBtn);
     cursor.classList.remove("on");
+    hideCallout();
     fev("TaskReceived", 205, "t1");
 
     // 2 — plan
@@ -531,7 +618,7 @@
     fev("IssueQueued", 255, "client-wiring · needs limiter-core");
     fev("IssueQueued", 255, "docs");
 
-    // 3 — workers claim
+    // 3 — workers claim, with live activity
     await wait(900);
     cap("03", "Workers code in isolated sandbox clones — never in your repo.");
     fev("IssueClaimed", 268, "limiter-core → worker-1");
@@ -539,7 +626,21 @@
     await wait(400);
     fev("IssueClaimed", 268, "docs → worker-2");
     worker("w2", workingSlot("Document rate limits", "issue/docs"), true);
-    await wait(2100);
+    await wait(300);
+    setActivity("w1slot", "Read client.py");
+    setActivity("w2slot", "Read README.md");
+    showCallout(
+      "#w1", "live activity",
+      "Every read, edit, and test run each agent makes, streamed to its card as it happens.",
+      "bottom",
+    );
+    await wait(900);
+    setActivity("w1slot", "Edit limiter.py");
+    await wait(700);
+    setActivity("w2slot", "Edit README.md");
+    setActivity("w1slot", "Bash python3 -m unittest -q");
+    await wait(900);
+    hideCallout();
 
     // 4 — first review
     cap("04", "A small, focused diff asks for clearance. The click is yours.");
@@ -553,12 +654,25 @@
       <div class="a">+    def acquire(self) -&gt; bool:</div>
       <div class="a">+        self._refill()</div>
       <div class="a">+        ...</div>`);
-    await wait(1400);
+    await wait(800);
+    showCallout(
+      "#approveBtn", "the human gate",
+      "Nothing merges without your click — a misclick-safe two-step approve, or send it back with a reason.",
+      "top",
+    );
+    await wait(1200);
+    hideCallout();
     await approveFlow(false);
 
     // 5 — serial merge
     cap("05", "Approved chunks merge one at a time, tests on every candidate.");
+    showCallout(
+      "#queue", "serial merges",
+      "Approved chunks land one at a time, in dependency order, with tests on every candidate.",
+      "left",
+    );
     await mergeBeat("limiter-core", "issue/limiter-core");
+    hideCallout();
     worker("w1", idleSlot, false);
     await wait(500);
 
@@ -566,7 +680,9 @@
     cap("06", "Merging unblocks the issues that depended on it.");
     fev("IssueClaimed", 268, "client-wiring → worker-1");
     worker("w1", workingSlot("Wire limiter into client", "issue/client-wiring"), true);
-    await wait(1700);
+    await wait(600);
+    setActivity("w1slot", "Edit client.py");
+    await wait(1100);
     fev("ReviewOpened", 78, "docs");
     worker("w2", reviewSlot("Document rate limits", "issue/docs"), false);
     showReview("Document rate limits", "issue/docs", "worker-2", `
