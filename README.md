@@ -37,23 +37,47 @@ before it reaches your real remote.
   working directory and the tool stops. You test locally and run any real git
   operations yourself.
 
-## Quick start
+## Install
 
 ```sh
-./run start
+pip install apronagents
 ```
 
-This sets up the environment with [uv](https://docs.astral.sh/uv/), boots the
-orchestrator, workers, merge controller, and dashboard server, and opens the
-dashboard in your browser. Enter a task, review the diffs, and approve merges
-chunk by chunk; when everything is green the result lands in your working
-directory and the tool stops.
+Then, from the project directory you want the agents to work on:
 
-Once the environment exists you can also launch directly:
+```sh
+apron start
+```
+
+This boots the orchestrator, workers, merge controller, and dashboard server,
+and opens the dashboard in your browser. Enter a task, review the diffs, and
+approve merges chunk by chunk; when everything is green the result lands in
+your working directory and the tool stops.
+
+No account? Try the whole flow with fake agents:
+
+```sh
+apron start --runner demo
+```
+
+Common flags:
 
 ```sh
 apron start [--mode supervised|autonomous] [--runner ...] [--test-command 'pytest -q']
+apron task "add dark mode"   # dispatch to a running apron from your terminal
 ```
+
+## Quick start from a clone
+
+For hacking on Apron itself:
+
+```sh
+git clone https://github.com/Ut8v/apronagents && cd apronagents
+./run start
+```
+
+This sets up the environment with [uv](https://docs.astral.sh/uv/) and
+launches everything the same way.
 
 ## Agent backends
 
