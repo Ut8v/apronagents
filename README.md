@@ -7,6 +7,13 @@
 
 # Apron Agents
 
+<p>
+  <a href="https://pypi.org/project/apronagents/"><img src="https://img.shields.io/pypi/v/apronagents" alt="PyPI"></a>
+  <a href="https://pypi.org/project/apronagents/"><img src="https://img.shields.io/pypi/pyversions/apronagents" alt="Python versions"></a>
+  <a href="https://github.com/Ut8v/apronagents/actions/workflows/ci.yml"><img src="https://github.com/Ut8v/apronagents/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
+</p>
+
 A local, one-command tool that breaks a coding task into small independent issues,
 hands them to worker agents that each work in an isolated sandbox, and merges their
 work one chunk at a time behind a human review gate.

@@ -28,6 +28,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/Ut8v/apronagents"
 Repository = "https://github.com/Ut8v/apronagents"
+Documentation = "https://ut8v.github.io/apronagents/"
 Issues = "https://github.com/Ut8v/apronagents/issues"
 
 [project.scripts]
