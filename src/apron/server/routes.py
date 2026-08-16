@@ -76,6 +76,7 @@ def state_payload(ctx: ServerContext) -> dict:
                 "state": i.state.value,
                 "worker_id": i.worker_id,
                 "branch": i.branch,
+                "last_activity": i.last_activity,
                 "updated_at": i.updated_at,
             }
             for i in ctx.store.issues()

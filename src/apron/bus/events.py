@@ -117,6 +117,17 @@ class WorkStarted(Event):
 
 @_register
 @dataclass(frozen=True, kw_only=True)
+class ProgressReported(Event):
+    """A worker's agent did something observable (read a file, made an edit,
+    said what it is about to do). Pure telemetry for the dashboard."""
+
+    issue_id: str
+    worker_id: str
+    note: str
+
+
+@_register
+@dataclass(frozen=True, kw_only=True)
 class ReviewOpened(Event):
     issue_id: str
     worker_id: str
