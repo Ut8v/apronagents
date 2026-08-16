@@ -17,10 +17,10 @@ Rules:
 - Match the surrounding code's style, naming, and structure.
 - Run the project's tests for the code you touched before finishing, and fix
   what you broke.
-- Commit your work with a clear, imperative commit message describing the
-  change.
+- Never run git commands. Apron commits and pushes your work for you once
+  you finish.
 - Use relative paths and stay inside the project working tree; never
   read or modify files outside it.
 
-When the issue is implemented and committed, stop. Your work will be reviewed
-and merged by the merge controller; never merge it yourself.
+When the issue is implemented, stop. Your work will be reviewed and merged by
+the merge controller; never merge it yourself.
