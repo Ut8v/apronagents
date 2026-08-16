@@ -72,3 +72,16 @@ weaken them will not be merged:
 Open a GitHub issue. For bugs, include the command you ran, the runner in
 use (`claude-code`, `codex`, `api`, `demo`), and the relevant log output.
 For features, a short problem statement beats a solution spec.
+
+## Releasing (maintainers)
+
+Releases are tag-driven. Bump `version` in `pyproject.toml` (via a PR), then:
+
+```
+git tag v<version> && git push origin v<version>
+```
+
+The release workflow runs the full test suite, builds the dashboard into the
+wheel, smoke-tests the installed package, publishes to PyPI via trusted
+publishing, and attaches the artifacts to a GitHub Release. The workflow
+refuses to ship if the tag does not match the `pyproject.toml` version.
