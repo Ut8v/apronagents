@@ -14,7 +14,8 @@
 <style>
   :root{
     --ink:#14161A; --clay:#B0673C; --canvas:#F5F4F0;
-    --ink-soft:#3a3d44; --ink-faint:#7a7d85; --line:#e2e0d9;
+    --page:#0f1114; --card:#1a1d23;
+    --ink-soft:#b9b6ae; --ink-faint:#8b8f98; --line:#262a31;
     /* cockpit (matches the real dashboard) */
     --c-base:oklch(0.145 0.01 255); --c-rail:oklch(0.165 0.01 255);
     --c-card:oklch(0.195 0.012 255); --c-line:oklch(0.27 0.013 255);
@@ -25,19 +26,19 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
-  body{background:var(--canvas);color:var(--ink);font:16px/1.55 "Space Grotesk",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  body{background:var(--page);color:var(--canvas);font:16px/1.55 "Space Grotesk",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
   .mono{font-family:"JetBrains Mono",ui-monospace,monospace}
   a{color:inherit}
   .wrap{max-width:1060px;margin:0 auto;padding:0 24px}
 
-  header.site{position:sticky;top:0;z-index:9;background:color-mix(in srgb,var(--canvas) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  header.site{position:sticky;top:0;z-index:9;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
   header.site .wrap{display:flex;align-items:center;gap:12px;height:60px}
   .wordmark{font-weight:500;letter-spacing:-.04em;font-size:20px}
   header.site nav{margin-left:auto;display:flex;gap:22px;font-size:14px}
   header.site nav a{text-decoration:none;color:var(--ink-soft)}
-  header.site nav a:hover{color:var(--ink)}
-  .gh{border:1.5px solid var(--ink);border-radius:8px;padding:5px 12px;font-weight:500}
-  .gh:hover{background:var(--ink);color:var(--canvas)}
+  header.site nav a:hover{color:var(--canvas)}
+  .gh{border:1.5px solid var(--canvas);border-radius:8px;padding:5px 12px;font-weight:500}
+  .gh:hover{background:var(--canvas);color:var(--ink)}
 
   .hero{padding:72px 0 34px;text-align:center}
   .hero h1{font-size:clamp(30px,5vw,52px);line-height:1.08;letter-spacing:-.03em;font-weight:600;max-width:820px;margin:0 auto}
@@ -45,16 +46,16 @@
   .hero p.sub{margin:18px auto 0;max-width:640px;color:var(--ink-soft);font-size:18px}
   .cta{margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
   .btn{display:inline-block;text-decoration:none;border-radius:10px;padding:11px 20px;font-weight:500;font-size:15px}
-  .btn.primary{background:var(--ink);color:var(--canvas)}
-  .btn.primary:hover{background:#000}
-  .btn.ghost{border:1.5px solid var(--ink)}
-  .btn.ghost:hover{background:#fff}
+  .btn.primary{background:var(--clay);color:var(--ink)}
+  .btn.primary:hover{background:#c47a4b}
+  .btn.ghost{border:1.5px solid var(--canvas);color:var(--canvas)}
+  .btn.ghost:hover{background:rgba(245,244,240,.08)}
   .pipnote{margin-top:14px;font-size:13px;color:var(--ink-faint)}
-  .pipnote code{background:#fff;border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+  .pipnote code{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:2px 8px}
 
   /* ============ the recreated workflow ============ */
   .demo-wrap{padding:30px 0 8px}
-  .cockpit{background:var(--c-base);border-radius:14px;border:1px solid #0a0b0d;box-shadow:0 30px 70px rgba(20,22,26,.35);overflow:hidden;position:relative}
+  .cockpit{background:var(--c-base);border-radius:14px;border:1px solid #2b2f37;box-shadow:0 30px 70px rgba(0,0,0,.55);overflow:hidden;position:relative}
   .chrome{display:flex;align-items:center;gap:7px;padding:11px 14px;background:oklch(0.175 0.011 255);border-bottom:1px solid var(--c-line)}
   .chrome .dot{width:11px;height:11px;border-radius:50%;background:oklch(0.32 0.012 255)}
   .chrome .addr{margin-left:10px;color:var(--c-dim);font-size:11px}
@@ -150,24 +151,25 @@
   .caption .step{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--clay)}
   .caption .txt{font-size:15px;color:var(--ink-soft)}
   .replay{margin-left:8px;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:none;border:1px solid var(--line);border-radius:6px;padding:4px 10px;color:var(--ink-faint);cursor:pointer}
-  .replay:hover{color:var(--ink);border-color:var(--ink)}
+  .replay:hover{color:var(--canvas);border-color:var(--canvas)}
 
   /* ============ marketing sections ============ */
   section.block{padding:64px 0 8px}
   section.block h2{font-size:28px;letter-spacing:-.02em;font-weight:600}
   section.block p.lead{color:var(--ink-soft);max-width:640px;margin-top:10px}
   .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px}
-  .pillar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px}
+  .pillar{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
   .pillar .num{font-family:"JetBrains Mono",monospace;color:var(--clay);font-size:11px;letter-spacing:.1em}
   .pillar h3{margin:8px 0 8px;font-size:17px;font-weight:600}
   .pillar p{font-size:14px;color:var(--ink-soft)}
-  .topology{margin-top:28px;background:var(--ink);border-radius:14px;padding:26px;display:flex;justify-content:center}
-  .runners{margin-top:24px;width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:14px}
+  .topology{margin-top:28px;background:var(--ink);border:1px solid var(--line);border-radius:14px;padding:26px;display:flex;justify-content:center}
+  .runners{margin-top:24px;width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:14px}
   .runners th,.runners td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--line)}
-  .runners th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);background:#faf9f6}
+  .runners th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);background:#15171c}
+  .runners td{color:var(--ink-soft)}
   .runners tr:last-child td{border-bottom:0}
-  .runners code{font-family:"JetBrains Mono",monospace;font-size:12.5px;background:var(--canvas);border:1px solid var(--line);border-radius:5px;padding:1px 7px}
-  .quick{margin-top:24px;background:var(--ink);color:var(--canvas);border-radius:14px;padding:22px 26px;font-family:"JetBrains Mono",monospace;font-size:13.5px;line-height:2}
+  .runners code{font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--canvas);background:var(--page);border:1px solid var(--line);border-radius:5px;padding:1px 7px}
+  .quick{margin-top:24px;background:var(--ink);color:var(--canvas);border:1px solid var(--line);border-radius:14px;padding:22px 26px;font-family:"JetBrains Mono",monospace;font-size:13.5px;line-height:2}
   .quick .c{color:#8b8f98}
   .quick .clay{color:#d99567}
   footer{margin-top:80px;border-top:1px solid var(--line);padding:26px 0 40px;font-size:13px;color:var(--ink-faint)}
@@ -184,7 +186,7 @@
 
 <header class="site">
   <div class="wrap">
-    <img src="brand/mark.svg" alt="" width="30" height="30">
+    <img src="brand/mark-reverse.svg" alt="" width="30" height="30">
     <span class="wordmark">apronagents</span>
     <nav>
       <a href="#how">How it works</a>
@@ -364,7 +366,7 @@
 
 <footer>
   <div class="wrap">
-    <img src="brand/mark.svg" alt="" width="22" height="22">
+    <img src="brand/mark-reverse.svg" alt="" width="22" height="22">
     <span>apronagents — MIT licensed</span>
     <a style="margin-left:auto" href="https://github.com/Ut8v/apronagents">GitHub</a>
   </div>
