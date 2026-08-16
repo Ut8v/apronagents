@@ -20,6 +20,8 @@ together complete it. Follow these rules:
 - Every issue gets a short imperative title and a description precise enough
   that a worker with no other context can implement it: which files to touch,
   what behavior to add or change, and how to verify it.
+- Refer to files by their path relative to the project root — never
+  absolute paths.
 
 Return the issues as a plan with explicit dependency edges. Do not write any
 code yourself; your job is only to plan.

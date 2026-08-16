@@ -185,7 +185,8 @@ class ApiPlanner:
                     "content": (
                         f"Task: {prompt}\n\n"
                         f"Project files:\n{_list_files(self.working_dir)}\n\n"
-                        "Split this task into issues."
+                        "Split this task into issues. Refer to files by "
+                        "paths relative to the project root."
                     ),
                 }
             ],
