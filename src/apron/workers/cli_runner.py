@@ -120,9 +120,11 @@ class CliAgentRunner:
             f"Implement this issue in the current project.\n\n"
             f"Title: {issue.title}\n"
             f"Description: {issue.description}\n\n"
-            "Do not run any git commands; just make the changes. When the "
-            "issue is fully implemented, finish with a one-paragraph summary "
-            "of what you changed."
+            "Work only on files inside the current working directory, using "
+            "relative paths — never absolute paths, and never files outside "
+            "it. Do not run any git commands; just make the changes. When "
+            "the issue is fully implemented, finish with a one-paragraph "
+            "summary of what you changed."
         )
         if on_progress is not None and self.profile.work_stream_args:
             summary = await self._invoke(
@@ -245,8 +247,10 @@ class CliPlanner:
             self._resolve_definition(),
             (
                 f"Task: {prompt}\n\n"
-                "Split this task into issues. Respond with ONLY a JSON object, "
-                "no prose and no code fences, shaped exactly like:\n"
+                "Split this task into issues. Refer to files by paths "
+                "relative to the project root, never absolute paths. Respond "
+                "with ONLY a JSON object, no prose and no code fences, "
+                "shaped exactly like:\n"
                 '{"issues": [{"id": "short-slug", "title": "...", '
                 '"description": "...", "depends_on": []}]}'
             ),
