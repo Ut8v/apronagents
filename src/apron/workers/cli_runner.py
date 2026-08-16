@@ -105,9 +105,17 @@ CODEX_PROFILE = CliProfile(
 class CliAgentRunner:
     """Runs one agent CLI per issue, in the worker's clone."""
 
-    def __init__(self, profile: CliProfile, timeout: float = 3600.0) -> None:
+    def __init__(
+        self,
+        profile: CliProfile,
+        timeout: float = 3600.0,
+        session_context: str | None = None,
+    ) -> None:
         self.profile = profile
         self.timeout = timeout
+        # A summary of the user's recent interactive session, injected into
+        # every issue prompt so workers know what was already decided.
+        self.session_context = session_context
 
     async def run_issue(
         self,
@@ -126,6 +134,12 @@ class CliAgentRunner:
             "the issue is fully implemented, finish with a one-paragraph "
             "summary of what you changed."
         )
+        if self.session_context:
+            prompt += (
+                "\n\nBackground from the user's recent interactive Claude "
+                "session (already agreed; do not re-litigate):\n"
+                + self.session_context
+            )
         if on_progress is not None and self.profile.work_stream_args:
             summary = await self._invoke(
                 self.profile.work_stream_args, definition, prompt, workdir,
@@ -237,16 +251,24 @@ class CliPlanner:
         runner: CliAgentRunner,
         definition_resolver: Callable[[], AgentDefinition],
         working_dir: Path,
+        session_context: str | None = None,
     ) -> None:
         self.runner = runner
         self._resolve_definition = definition_resolver
         self.working_dir = working_dir
+        self.session_context = session_context
 
     async def plan(self, task_id: str, prompt: str) -> list[PlannedIssue]:
+        context = (
+            "\n\nBackground from the user's recent interactive Claude session:"
+            f"\n{self.session_context}\n"
+            if self.session_context
+            else ""
+        )
         text = await self.runner.complete(
             self._resolve_definition(),
             (
-                f"Task: {prompt}\n\n"
+                f"Task: {prompt}{context}\n\n"
                 "Split this task into issues. Refer to files by paths "
                 "relative to the project root, never absolute paths. Respond "
                 "with ONLY a JSON object, no prose and no code fences, "
@@ -257,6 +279,45 @@ class CliPlanner:
             self.working_dir,
         )
         return issues_from_payload(_extract_json(text))
+
+
+_SUMMARY_PROMPT = (
+    "Summarize this session for a coding agent taking over related work: "
+    "decisions made, constraints agreed on, work completed, and anything "
+    "still in flight. Be concise (under 300 words). If nothing here is "
+    "relevant to future coding work, reply with exactly: NOTHING"
+)
+
+
+async def summarize_recent_session(
+    working_dir: Path, executable: str = "claude", timeout: float = 180.0
+) -> str | None:
+    """Ask the user's most recent interactive Claude session (for this
+    project directory) to summarize itself. Returns None when there is no
+    CLI, no session, or nothing relevant — callers treat that as "no
+    context" and move on."""
+    import shutil
+
+    if shutil.which(executable) is None:
+        return None
+    process = await asyncio.create_subprocess_exec(
+        executable, "-p", "--continue", _SUMMARY_PROMPT,
+        cwd=working_dir,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, _ = await asyncio.wait_for(process.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
+        return None
+    if process.returncode != 0:
+        return None
+    summary = stdout.decode(errors="replace").strip()
+    if not summary or summary == "NOTHING":
+        return None
+    return summary[:4000]
 
 
 def _claude_stream_line(line: str) -> tuple[list[str], str | None]:
