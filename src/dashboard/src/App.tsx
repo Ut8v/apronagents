@@ -42,7 +42,8 @@ export default function App() {
         className="sticky top-0 z-20 flex h-14 items-center gap-5 border-b border-line px-5 backdrop-blur-md"
         style={{ background: "oklch(0.175 0.011 255 / 0.92)" }}
       >
-        <div className="flex items-baseline gap-2.5">
+        <div className="flex items-center gap-2.5">
+          <img src="/mark-reverse.svg" alt="" className="h-7 w-7" />
           <span className="text-sm font-[650] tracking-[0.02em] text-ink">Apron Agents</span>
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
             merge cockpit
