@@ -19,8 +19,15 @@ import uvicorn
 from apron.agents.definition import AgentDefinition, AgentRole
 from apron.agents.discovery import discover_from_settings, resolve_for_role
 from apron.agents.watch import AgentWatcher
+import uuid
+
 from apron.bus.bus import EventBus
-from apron.bus.events import AgentDefinitionsReloaded, HandoffCompleted, TaskCompleted
+from apron.bus.events import (
+    AgentDefinitionsReloaded,
+    HandoffCompleted,
+    TaskCompleted,
+    TaskReceived,
+)
 from apron.bus.store import StateStore
 from apron.config import Settings
 from apron.merge.controller import MergeController
@@ -50,8 +57,9 @@ _DEMO_OUTPUTS = {
 class Launcher:
     """Owns the process tree for one Apron run."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, initial_task: str | None = None) -> None:
         self.settings = settings
+        self._initial_task = initial_task
         self.bus = EventBus()
         self.store = StateStore(settings.db_path or ":memory:")
         self._store_subscription = self.bus.subscribe(self.store.record)
@@ -110,6 +118,12 @@ class Launcher:
         )
         if settings.open_browser:
             webbrowser.open(f"http://{settings.host}:{settings.port}")
+        if self._initial_task:
+            task_id = uuid.uuid4().hex[:8]
+            await self.bus.publish(
+                TaskReceived(task_id=task_id, prompt=self._initial_task)
+            )
+            log.info("task %s dispatched from the command line", task_id)
 
     def _build_backend(self) -> tuple[AgentRunner, Planner]:
         choice = self.settings.runner
@@ -237,11 +251,11 @@ class Launcher:
         log.info("apron stopped")
 
 
-def launch(settings: Settings) -> None:
+def launch(settings: Settings, initial_task: str | None = None) -> None:
     """Run one full Apron session, blocking until it finishes."""
 
     async def _run() -> None:
-        launcher = Launcher(settings)
+        launcher = Launcher(settings, initial_task=initial_task)
         try:
             await launcher.start()
             await launcher.wait()
