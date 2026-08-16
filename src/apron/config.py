@@ -48,6 +48,10 @@ class Settings:
     #   api         - the Anthropic API directly
     #   demo        - fake agents, for trying the tool without any account
     runner: str = "auto"
+    # Before planning, ask the project's most recent interactive Claude
+    # session to summarize itself and inject that into planner and worker
+    # prompts. Opt-in: it reads (a summary of) your session transcript.
+    with_session_context: bool = False
     open_browser: bool = True
     user_dir: Path = field(default_factory=lambda: Path.home())
 
@@ -79,6 +83,7 @@ def load_settings(
     worker_count: int | None = None,
     test_command: str | None = None,
     runner: str | None = None,
+    with_session_context: bool | None = None,
     open_browser: bool | None = None,
 ) -> Settings:
     """Build settings from explicit arguments, then environment, then defaults.
@@ -96,5 +101,10 @@ def load_settings(
         port=port or int(env.get("APRON_PORT", DEFAULT_PORT)),
         test_command=test_command or env.get("APRON_TEST_COMMAND"),
         runner=runner or env.get("APRON_RUNNER", "auto"),
+        with_session_context=(
+            env.get("APRON_SESSION_CONTEXT", "") == "1"
+            if with_session_context is None
+            else with_session_context
+        ),
         open_browser=True if open_browser is None else open_browser,
     )

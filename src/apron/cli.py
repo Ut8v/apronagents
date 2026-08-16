@@ -69,6 +69,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="project working directory (default: current directory)",
     )
     start.add_argument(
+        "--with-session-context",
+        action="store_true",
+        help=(
+            "summarize your most recent interactive Claude session for this "
+            "project and give it to the planner and workers"
+        ),
+    )
+    start.add_argument(
         "--no-browser",
         action="store_true",
         help="do not open the dashboard in a browser",
@@ -155,6 +163,7 @@ def main(argv: list[str] | None = None) -> int:
             worker_count=args.workers,
             runner=args.runner,
             test_command=args.test_command,
+            with_session_context=args.with_session_context or None,
             open_browser=not args.no_browser,
         )
         launch(settings, initial_task=" ".join(args.task).strip() or None)
