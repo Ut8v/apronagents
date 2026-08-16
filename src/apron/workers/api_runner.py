@@ -16,7 +16,11 @@ from typing import Callable
 from anthropic import AsyncAnthropic
 
 from apron.agents.definition import AgentDefinition
-from apron.orchestrator.planner import PlannedIssue, issues_from_payload
+from apron.orchestrator.planner import (
+    OnPlanProgress,
+    PlannedIssue,
+    issues_from_payload,
+)
 from apron.workers.runner import OnProgress, WorkResult
 
 DEFAULT_MODEL = "claude-opus-5"
@@ -186,8 +190,16 @@ class ApiPlanner:
         self.working_dir = working_dir
         self.session_context = session_context
 
-    async def plan(self, task_id: str, prompt: str) -> list[PlannedIssue]:
+    async def plan(
+        self,
+        task_id: str,
+        prompt: str,
+        on_progress: OnPlanProgress | None = None,
+    ) -> list[PlannedIssue]:
         definition = self._resolve_definition()
+        if on_progress is not None:
+            model = definition.model or DEFAULT_MODEL
+            await on_progress(f"asking {model} to split the task…")
         response = await self.client.messages.create(
             model=definition.model or DEFAULT_MODEL,
             max_tokens=_MAX_TOKENS,

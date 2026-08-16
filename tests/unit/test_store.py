@@ -140,3 +140,21 @@ def test_progress_updates_last_activity_but_never_a_merged_issue():
         ProgressReported(issue_id="i1", worker_id="w1", note="stray late note")
     )
     assert store.issue("i1").last_activity == "Edit tz.py"
+
+
+def test_planning_tracks_notes_for_the_current_unplanned_task():
+    from apron.bus.events import PlanningProgress, TaskPlanned, TaskReceived
+
+    store = StateStore()
+    assert store.planning() == {"active": False, "notes": []}
+
+    store.record(TaskReceived(task_id="t1", prompt="add dark mode"))
+    store.record(PlanningProgress(task_id="t1", note="reading the project…"))
+    store.record(PlanningProgress(task_id="t1", note="splitting into issues…"))
+    assert store.planning() == {
+        "active": True,
+        "notes": ["reading the project…", "splitting into issues…"],
+    }
+
+    store.record(TaskPlanned(task_id="t1", issue_ids=("a",)))
+    assert store.planning() == {"active": False, "notes": []}

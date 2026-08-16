@@ -82,6 +82,17 @@ class TaskReceived(Event):
 
 @_register
 @dataclass(frozen=True, kw_only=True)
+class PlanningProgress(Event):
+    """The planner did something observable while splitting the task (read a
+    file, said what it is thinking). Pure telemetry, so the dispatch terminal
+    has something to show between hitting enter and the first issue."""
+
+    task_id: str
+    note: str
+
+
+@_register
+@dataclass(frozen=True, kw_only=True)
 class TaskPlanned(Event):
     task_id: str
     issue_ids: tuple[str, ...]

@@ -39,3 +39,20 @@ def test_empty_and_invalid_plans_are_rejected():
         issues_from_payload(
             {"issues": [{"title": "A", "description": "", "depends_on": ["ghost"]}]}
         )
+
+
+async def test_static_planner_narrates_before_returning():
+    from apron.orchestrator.planner import PlannedIssue, StaticPlanner
+
+    planner = StaticPlanner(
+        [PlannedIssue("i1", "One", "")],
+        narration=("reading the project…", "splitting…"),
+    )
+    notes: list[str] = []
+
+    async def on_progress(note: str) -> None:
+        notes.append(note)
+
+    issues = await planner.plan("t1", "do the thing", on_progress=on_progress)
+    assert [i.issue_id for i in issues] == ["i1"]
+    assert notes == ["reading the project…", "splitting…"]

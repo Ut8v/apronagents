@@ -120,7 +120,7 @@ export default function App() {
             )}
           </aside>
           <div className="flex flex-col gap-5 bg-base p-5">
-            <TaskBar />
+            <TaskBar planning={state?.planning} />
             {state && (
               <>
                 <AgentBoard state={state} />

@@ -1,16 +1,29 @@
-import { useRef, useState } from "react";
-import { api } from "../api/client";
+import { useEffect, useRef, useState } from "react";
+import { api, PlanningState } from "../api/client";
 
-export default function TaskBar() {
+export default function TaskBar({ planning }: { planning?: PlanningState }) {
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
+  const [echo, setEcho] = useState<string | null>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
+  const wasActive = useRef(false);
+
+  const active = planning?.active ?? false;
+  const notes = active ? planning?.notes ?? [] : [];
+
+  // Clear the echoed prompt once planning finishes — the issues appearing
+  // on the board take over as the feedback from there.
+  useEffect(() => {
+    if (wasActive.current && !active) setEcho(null);
+    wasActive.current = active;
+  }, [active]);
 
   const submit = async () => {
     if (!prompt.trim() || busy) return;
     setBusy(true);
     try {
       await api.submitTask(prompt.trim());
+      setEcho(prompt.trim());
       setPrompt("");
       if (areaRef.current) areaRef.current.style.height = "auto";
     } finally {
@@ -65,6 +78,24 @@ export default function TaskBar() {
           className="max-h-44 min-h-[44px] flex-1 resize-none bg-transparent text-[12.5px] leading-[1.7] text-[oklch(0.9_0.008_255)] outline-none placeholder:text-[oklch(0.5_0.012_255)]"
         />
       </div>
+      {(echo !== null || active) && (
+        <div className="mt-2 rounded-lg border border-[oklch(0.3_0.014_255)] bg-rail px-3 py-2 font-mono text-[11px] leading-[1.9]">
+          {echo && (
+            <div className="truncate text-[oklch(0.62_0.012_255)]">
+              <span className="text-[oklch(0.75_0.1_205)]">$</span> {echo}
+            </div>
+          )}
+          {notes.map((note, index) => (
+            <div key={index} className="truncate text-[oklch(0.68_0.012_255)]">
+              <span className="text-[oklch(0.6_0.05_205)]">▸</span> {note}
+            </div>
+          ))}
+          <div className="animate-pulse text-[oklch(0.78_0.05_205)]">
+            <span>▸</span> planner is thinking…
+            <span className="ml-1 inline-block">▍</span>
+          </div>
+        </div>
+      )}
       <div className="mt-2 flex flex-wrap gap-x-4 font-mono text-[10px] text-[oklch(0.5_0.012_255)]">
         <span>enter dispatches · shift+enter for a new line</span>
         <span className="ml-auto">

@@ -47,7 +47,9 @@ async def test_send_task_reaches_a_running_apron(tmp_path: Path):
 
         task_id = await asyncio.to_thread(send_task, "run the demo", "127.0.0.1", port)
         assert len(task_id) == 8
-        await asyncio.sleep(0.2)  # let the orchestrator plan
+        # Planning runs in the background so the dispatch returns instantly;
+        # wait for the plan to land.
+        await _wait_for_issues(launcher)
         assert launcher.store.issues()  # the terminal dispatch became issues
     finally:
         await launcher.stop()
@@ -69,6 +71,34 @@ async def test_start_with_initial_task_dispatches_on_boot(tmp_path: Path):
     )
     await launcher.start()
     try:
-        assert launcher.store.issues()  # planned before start() returned
+        await _wait_for_issues(launcher)
+        assert launcher.store.issues()  # the boot task became issues
     finally:
         await launcher.stop()
+
+
+async def _wait_for_issues(launcher, timeout: float = 5.0) -> None:
+    import asyncio
+
+    deadline = asyncio.get_event_loop().time() + timeout
+    while not launcher.store.issues():
+        if asyncio.get_event_loop().time() > deadline:
+            return
+        await asyncio.sleep(0.1)
+
+
+def test_planning_lines_reports_only_new_notes():
+    from apron.cli import planning_lines
+
+    lines, seen = planning_lines(0, {"active": True, "notes": ["a", "b"]})
+    assert lines == ["  ▸ planner · a", "  ▸ planner · b"]
+
+    lines, seen = planning_lines(seen, {"active": True, "notes": ["a", "b", "c"]})
+    assert lines == ["  ▸ planner · c"]
+
+    lines, seen = planning_lines(seen, {"active": False, "notes": []})
+    assert lines == []
+
+    # A fresh task starts a fresh note list; the counter must reset with it.
+    lines, seen = planning_lines(3, {"active": True, "notes": ["x"]})
+    assert lines == ["  ▸ planner · x"]

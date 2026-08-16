@@ -167,3 +167,39 @@ async def test_without_a_callback_streaming_args_are_not_used(tmp_path: Path):
     runner = claude_like(tmp_path, 'printf "%s\\n" "$@" > args.txt\necho done\n')
     await runner.run_issue(DEFINITION, ISSUE, workdir)
     assert "stream-json" not in (workdir / "args.txt").read_text()
+
+
+async def test_planning_streams_activity_but_not_the_plan_json(tmp_path: Path):
+    plan = {"issues": [{"id": "one", "title": "One", "description": "d", "depends_on": []}]}
+    lines = [
+        {"type": "assistant", "message": {"content": [
+            {"type": "text", "text": "Scanning the project layout."}]}},
+        {"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "Read", "input": {"file_path": "cli.py"}}]}},
+        # The plan itself streaming back must not be echoed as activity.
+        {"type": "assistant", "message": {"content": [
+            {"type": "text", "text": json.dumps(plan)}]}},
+        {"type": "result", "result": json.dumps(plan)},
+    ]
+    script = "\n".join(f"echo '{json.dumps(l)}'" for l in lines) + "\n"
+    runner = claude_like(tmp_path, script)
+    planner = CliPlanner(runner, lambda: DEFINITION, tmp_path)
+
+    notes: list[str] = []
+
+    async def on_progress(note: str) -> None:
+        notes.append(note)
+
+    issues = await planner.plan("t1", "do the thing", on_progress=on_progress)
+    assert [i.issue_id for i in issues] == ["one"]
+    assert notes == ["Scanning the project layout.", "Read cli.py"]
+
+
+async def test_planning_without_a_callback_uses_the_plain_args(tmp_path: Path):
+    runner = claude_like(
+        tmp_path, 'printf "%s\\n" "$@" > args.txt\necho \'{"issues": '
+        '[{"id": "a", "title": "A", "description": "", "depends_on": []}]}\'\n'
+    )
+    planner = CliPlanner(runner, lambda: DEFINITION, tmp_path)
+    await planner.plan("t1", "do")
+    assert "stream-json" not in (tmp_path / "args.txt").read_text()

@@ -10,9 +10,14 @@ vocabulary and the normalization from a model's raw plan payload.
 
 from __future__ import annotations
 
+import asyncio
 import re
 from dataclasses import dataclass
-from typing import Protocol, Sequence
+from typing import Awaitable, Callable, Protocol, Sequence
+
+# Called with a short human-readable note each time the planner does
+# something observable; the orchestrator turns these into bus events.
+OnPlanProgress = Callable[[str], Awaitable[None]]
 
 
 @dataclass(frozen=True)
@@ -28,20 +33,43 @@ class PlannedIssue:
 class Planner(Protocol):
     """Anything that can split a task into planned issues."""
 
-    async def plan(self, task_id: str, prompt: str) -> list[PlannedIssue]: ...
+    async def plan(
+        self,
+        task_id: str,
+        prompt: str,
+        on_progress: OnPlanProgress | None = None,
+    ) -> list[PlannedIssue]: ...
 
 
 class StaticPlanner:
     """Returns a fixed plan regardless of the prompt.
 
     Used by tests and the demo loop to exercise the machinery with a known
-    split.
+    split. ``narration`` lines are reported at ``pace`` intervals so the
+    demo also exercises the live planning feed.
     """
 
-    def __init__(self, issues: Sequence[PlannedIssue]) -> None:
+    def __init__(
+        self,
+        issues: Sequence[PlannedIssue],
+        narration: Sequence[str] = (),
+        pace: float = 0.0,
+    ) -> None:
         self._issues = list(issues)
+        self._narration = list(narration)
+        self._pace = pace
 
-    async def plan(self, task_id: str, prompt: str) -> list[PlannedIssue]:
+    async def plan(
+        self,
+        task_id: str,
+        prompt: str,
+        on_progress: OnPlanProgress | None = None,
+    ) -> list[PlannedIssue]:
+        for note in self._narration:
+            if on_progress is not None:
+                await on_progress(note)
+            if self._pace:
+                await asyncio.sleep(self._pace)
         return list(self._issues)
 
 

@@ -114,6 +114,14 @@ def fetch_state(host: str, port: int) -> dict:
         return json.loads(response.read())
 
 
+def planning_lines(seen: int, planning: dict) -> tuple[list[str], int]:
+    """New planner narration since the last poll (pure, for testing)."""
+    notes = planning.get("notes", []) if planning.get("active") else []
+    if len(notes) < seen:  # a new task started a fresh note list
+        seen = 0
+    return [f"  ▸ planner · {note}" for note in notes[seen:]], len(notes)
+
+
 def state_changes(previous: dict, issues: list[dict]) -> tuple[list[str], dict]:
     """Diff two state snapshots into narration lines (pure, for testing)."""
     lines: list[str] = []
@@ -133,6 +141,7 @@ def state_changes(previous: dict, issues: list[dict]) -> tuple[list[str], dict]:
 def follow(host: str, port: int) -> None:
     """Poll a running apron and narrate the run until it finishes."""
     previous: dict = {}
+    seen_notes = 0
     try:
         while True:
             try:
@@ -140,6 +149,9 @@ def follow(host: str, port: int) -> None:
             except (urllib.error.URLError, OSError):
                 print("apron stopped — the run is over (handoff done, or shut down)")
                 return
+            notes, seen_notes = planning_lines(seen_notes, state.get("planning", {}))
+            for line in notes:
+                print(line, flush=True)
             lines, previous = state_changes(previous, state["issues"])
             for line in lines:
                 print(line, flush=True)
