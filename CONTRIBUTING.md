@@ -29,6 +29,24 @@ To try the whole tool without any model account:
 uv run apron start --runner demo
 ```
 
+## Claiming an issue
+
+Work is assigned before it starts:
+
+1. Find an issue you want to take (`good first issue` is a fine place to
+   begin) and **comment on it to claim it**.
+2. Wait until a maintainer **assigns it to you** before writing code.
+3. Then branch, build, and open your pull request referencing the issue.
+
+Pull requests for issues that were not assigned to the author may be closed
+without review — not out of unkindness, but so two people never burn time on
+the same work and every change has an agreed shape before code exists. If
+you want to propose something that has no issue yet, open an issue first and
+let's talk there.
+
+If you claim an issue and stop having time for it, just say so on the issue —
+no judgment, it frees the work for someone else.
+
 ## Making changes
 
 - Branch from `main`; open a pull request when ready. CI runs the Python
