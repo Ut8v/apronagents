@@ -96,17 +96,17 @@ export const api = {
       body: JSON.stringify({ prompt }),
     }),
   getWorkspace: () => request<{ files: WorkspaceFile[] }>("/api/workspace"),
-  getDiff: (issueId: string) => request<IssueDiff>(`/api/issues/${issueId}/diff`),
+  getDiff: (issueId: string) => request<IssueDiff>(`/api/issues/${encodeURIComponent(issueId)}/diff`),
   approve: (issueId: string) =>
-    request(`/api/issues/${issueId}/approve`, { method: "POST" }),
+    request(`/api/issues/${encodeURIComponent(issueId)}/approve`, { method: "POST" }),
   sendBack: (issueId: string, reason: string) =>
-    request(`/api/issues/${issueId}/send-back`, {
+    request(`/api/issues/${encodeURIComponent(issueId)}/send-back`, {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
   getAgents: () => request<AgentInfo[]>("/api/agents"),
   saveAgent: (name: string, agent: Omit<AgentInfo, "name" | "source" | "overridden">) =>
-    request<AgentInfo>(`/api/agents/${name}`, {
+    request<AgentInfo>(`/api/agents/${encodeURIComponent(name)}`, {
       method: "PUT",
       body: JSON.stringify(agent),
     }),
