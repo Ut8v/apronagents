@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/svg/mark-reverse.svg">
-    <img src="assets/brand/svg/mark.svg" alt="Apron Agents" width="88" height="88">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Ut8v/apronagents/main/assets/brand/svg/mark-reverse.svg">
+    <img src="https://raw.githubusercontent.com/Ut8v/apronagents/main/assets/brand/svg/mark.svg" alt="Apron Agents" width="88" height="88">
   </picture>
 </p>
 
@@ -11,7 +11,7 @@
   <a href="https://pypi.org/project/apronagents/"><img src="https://img.shields.io/pypi/v/apronagents" alt="PyPI"></a>
   <a href="https://pypi.org/project/apronagents/"><img src="https://img.shields.io/pypi/pyversions/apronagents" alt="Python versions"></a>
   <a href="https://github.com/Ut8v/apronagents/actions/workflows/ci.yml"><img src="https://github.com/Ut8v/apronagents/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
+  <a href="https://github.com/Ut8v/apronagents/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
 </p>
 
 A local, one-command tool that breaks a coding task into small independent issues,
@@ -103,11 +103,11 @@ hot-reloads on the next issue.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) — setup, workflow, and the invariants
+See [CONTRIBUTING.md](https://github.com/Ut8v/apronagents/blob/main/CONTRIBUTING.md) — setup, workflow, and the invariants
 every change must respect. CI runs the test suite (Python 3.11–3.13), the
 dashboard typecheck/build, and a wheel install smoke test on every push and
 pull request.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/Ut8v/apronagents/blob/main/LICENSE)
