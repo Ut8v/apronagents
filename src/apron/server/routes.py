@@ -46,8 +46,17 @@ class TaskIn(BaseModel):
     prompt: str
 
 
+class AnnotationIn(BaseModel):
+    """One piece of review feedback pinned to a diff line."""
+
+    path: str
+    line: int
+    note: str
+
+
 class SendBackIn(BaseModel):
     reason: str = ""
+    annotations: list[AnnotationIn] = []
 
 
 class ModeIn(BaseModel):
@@ -192,7 +201,11 @@ def build_router(ctx: ServerContext) -> APIRouter:
     async def send_back(issue_id: str, body: SendBackIn) -> dict:
         _require_issue(ctx, issue_id)
         await ctx.bus.publish(
-            ChangesRequested(issue_id=issue_id, reason=body.reason)
+            ChangesRequested(
+                issue_id=issue_id,
+                reason=body.reason,
+                annotations=tuple(a.model_dump() for a in body.annotations),
+            )
         )
         return {"ok": True}
 

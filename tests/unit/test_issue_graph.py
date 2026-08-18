@@ -56,3 +56,26 @@ def test_duplicate_and_unknown_ids_are_rejected():
         graph.add(issue("a"))
     with pytest.raises(KeyError):
         graph.mark_active("ghost")
+
+
+def test_revise_folds_feedback_into_the_description_without_stacking():
+    from apron.orchestrator.issue_graph import IssueGraph
+    from apron.orchestrator.planner import PlannedIssue
+
+    graph = IssueGraph()
+    graph.add(PlannedIssue("i1", "Add parser", "Parse the config file."))
+
+    graph.revise("i1", "Feedback: handle empty files.")
+    [issue] = graph.ready()
+    assert issue.description == "Parse the config file.\n\nFeedback: handle empty files."
+
+    # A second send-back replaces the old feedback instead of stacking it.
+    graph.revise("i1", "Feedback: the parser crashes on comments.")
+    [issue] = graph.ready()
+    assert "empty files" not in issue.description
+    assert issue.description.startswith("Parse the config file.")
+    assert issue.description.endswith("the parser crashes on comments.")
+
+    graph.revise("i1", "")
+    [issue] = graph.ready()
+    assert issue.description == "Parse the config file."

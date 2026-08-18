@@ -119,8 +119,11 @@ class Orchestrator:
     async def _on_sent_back(
         self, event: ChangesRequested | MergeConflictDetected | TestsFailed
     ) -> None:
-        """A review rejection, conflict, or red test run: rework the issue."""
+        """A review rejection, conflict, or red test run: rework the issue,
+        with the feedback folded into its description so the next worker
+        actually knows what went wrong."""
         if event.issue_id in self.graph:
+            self.graph.revise(event.issue_id, _feedback_text(event))
             self.graph.release(event.issue_id)
             self.dispatch()
 
@@ -134,3 +137,29 @@ class Orchestrator:
         """Wait until every in-flight worker task settles (tests, shutdown)."""
         while self._work_tasks:
             await asyncio.gather(*list(self._work_tasks))
+
+
+def _feedback_text(
+    event: ChangesRequested | MergeConflictDetected | TestsFailed,
+) -> str:
+    """Render a send-back event as rework instructions for the next pass."""
+    if isinstance(event, ChangesRequested):
+        lines = ["Feedback from the reviewer on your previous attempt:"]
+        if event.reason:
+            lines.append(f"- {event.reason}")
+        for a in event.annotations:
+            lines.append(f"- {a['path']} line {a['line']}: {a['note']}")
+        if len(lines) == 1:
+            lines.append("- The reviewer sent this back; rework it carefully.")
+        lines.append("Address every point above.")
+        return "\n".join(lines)
+    if isinstance(event, TestsFailed):
+        text = "Your previous attempt failed the test suite."
+        if event.log_tail:
+            text += f" Failing output:\n{event.log_tail}"
+        return text
+    detail = f" ({event.detail})" if event.detail else ""
+    return (
+        f"Your previous branch conflicted with main{detail}. "
+        "Redo the issue on top of the current main."
+    )

@@ -78,7 +78,12 @@ class ConsoleReporter:
             return self._bold(f"● review open: {event.issue_id} by {event.worker_id}{where}")
         if isinstance(event, ChangesRequested):
             reason = f": {event.reason}" if event.reason else ""
-            return f"↩ sent back {event.issue_id}{reason}"
+            notes = (
+                f" · {len(event.annotations)} line note(s)"
+                if event.annotations
+                else ""
+            )
+            return f"↩ sent back {event.issue_id}{reason}{notes}"
         if isinstance(event, MergeStarted):
             return self._dim(f"  ⇅ merging {event.branch}")
         if isinstance(event, TestsFailed):

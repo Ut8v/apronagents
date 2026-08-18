@@ -149,8 +149,12 @@ class ReviewOpened(Event):
 @_register
 @dataclass(frozen=True, kw_only=True)
 class ChangesRequested(Event):
+    """The reviewer sent the work back. ``annotations`` pins feedback to
+    specific diff lines: a tuple of ``{"path", "line", "note"}`` dicts."""
+
     issue_id: str
     reason: str = ""
+    annotations: tuple = ()
 
 
 @_register
