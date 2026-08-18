@@ -200,3 +200,21 @@ def test_state_reports_planning_activity(client, ctx):
         "active": True,
         "notes": ["reading the project…"],
     }
+
+
+def test_send_back_carries_line_annotations(client, ctx):
+    from apron.bus.events import ChangesRequested
+
+    queue_issue(ctx)
+    events = record_events(ctx)
+    response = client.post(
+        "/api/issues/i1/send-back",
+        json={
+            "reason": "close, but",
+            "annotations": [{"path": "cli.py", "line": 14, "note": "guard None"}],
+        },
+    )
+    assert response.status_code == 200
+    [event] = [e for e in events if isinstance(e, ChangesRequested)]
+    assert event.reason == "close, but"
+    assert event.annotations == ({"path": "cli.py", "line": 14, "note": "guard None"},)

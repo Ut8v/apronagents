@@ -70,6 +70,12 @@ export interface IssueDiff {
   diff: string;
 }
 
+export interface DiffAnnotation {
+  path: string;
+  line: number;
+  note: string;
+}
+
 export interface BusEvent {
   kind: string;
   event_id: string;
@@ -99,10 +105,10 @@ export const api = {
   getDiff: (issueId: string) => request<IssueDiff>(`/api/issues/${encodeURIComponent(issueId)}/diff`),
   approve: (issueId: string) =>
     request(`/api/issues/${encodeURIComponent(issueId)}/approve`, { method: "POST" }),
-  sendBack: (issueId: string, reason: string) =>
+  sendBack: (issueId: string, reason: string, annotations: DiffAnnotation[] = []) =>
     request(`/api/issues/${encodeURIComponent(issueId)}/send-back`, {
       method: "POST",
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify({ reason, annotations }),
     }),
   getAgents: () => request<AgentInfo[]>("/api/agents"),
   saveAgent: (name: string, agent: Omit<AgentInfo, "name" | "source" | "overridden">) =>

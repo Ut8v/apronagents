@@ -48,3 +48,18 @@ def test_events_are_immutable():
         pass
     else:
         raise AssertionError("expected frozen dataclass to reject assignment")
+
+
+def test_annotations_survive_the_json_round_trip():
+    import json
+
+    from apron.bus.events import ChangesRequested
+
+    event = ChangesRequested(
+        issue_id="i1",
+        reason="not quite",
+        annotations=({"path": "cli.py", "line": 14, "note": "guard None"},),
+    )
+    # Through actual JSON, as the store journals it.
+    restored = event_from_dict(json.loads(json.dumps(event.to_dict())))
+    assert restored.annotations == ({"path": "cli.py", "line": 14, "note": "guard None"},)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, Issue, IssueDiff } from "../api/client";
+import { api, DiffAnnotation, Issue, IssueDiff } from "../api/client";
 import { FileStatusSquare, StateChip } from "./Badges";
 import DiffView from "./DiffView";
 
@@ -22,11 +22,29 @@ const MONO_BTN = "font-mono text-[11px] uppercase tracking-[0.1em] transition-co
 export default function ReviewCard({ issue, armed, onArm, onDisarm, onAction }: Props) {
   const [diff, setDiff] = useState<IssueDiff | null>(null);
   const [reason, setReason] = useState("");
+  const [annotations, setAnnotations] = useState<DiffAnnotation[]>([]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api.getDiff(issue.issue_id).then(setDiff).catch(() => setDiff(null));
+    setAnnotations([]); // a fresh diff invalidates line-pinned notes
   }, [issue.issue_id, issue.updated_at]);
+
+  const upsertNote = (path: string, line: number, note: string) =>
+    setAnnotations((all) =>
+      all.map((a) => (a.path === path && a.line === line ? { ...a, note } : a)),
+    );
+  const addNote = (path: string, line: number) =>
+    setAnnotations((all) =>
+      all.some((a) => a.path === path && a.line === line)
+        ? all
+        : [...all, { path, line, note: "" }],
+    );
+  const removeNote = (path: string, line: number) =>
+    setAnnotations((all) =>
+      all.filter((a) => !(a.path === path && a.line === line)),
+    );
+  const noteCount = annotations.filter((a) => a.note.trim()).length;
 
   const act = async (action: () => Promise<unknown>) => {
     setBusy(true);
@@ -87,7 +105,15 @@ export default function ReviewCard({ issue, armed, onArm, onDisarm, onAction }: 
           ))}
         </div>
       )}
-      {diff && <DiffView diff={diff.diff} />}
+      {diff && (
+        <DiffView
+          diff={diff.diff}
+          annotations={annotations}
+          onAnnotate={addNote}
+          onNoteChange={upsertNote}
+          onRemove={removeNote}
+        />
+      )}
 
       <div className="flex min-h-[62px] flex-wrap items-center gap-3.5 border-t border-line bg-raised px-4 py-3">
         <div className="flex min-w-[260px] flex-[1_1_300px] items-center gap-2">
@@ -98,15 +124,17 @@ export default function ReviewCard({ issue, armed, onArm, onDisarm, onAction }: 
             className="h-[34px] min-w-0 flex-1 rounded-[7px] border border-[oklch(0.3_0.014_255)] bg-rail px-[11px] text-[12.5px] outline-none transition-colors focus:border-[oklch(0.62_0.1_45)] focus:shadow-[0_0_0_3px_oklch(0.62_0.1_45/0.14)]"
           />
           <button
-            disabled={busy}
+            disabled={busy || (!reason.trim() && noteCount === 0)}
             onClick={() => {
               const value = reason;
+              const notes = annotations.filter((a) => a.note.trim());
               setReason("");
-              act(() => api.sendBack(issue.issue_id, value));
+              setAnnotations([]);
+              act(() => api.sendBack(issue.issue_id, value, notes));
             }}
             className={`${MONO_BTN} h-[34px] flex-none border border-[oklch(0.36_0.05_45)] bg-transparent px-3.5 text-[oklch(0.78_0.1_45)] hover:bg-[oklch(0.3_0.05_45/0.4)] disabled:opacity-50`}
           >
-            send back
+            send back{noteCount > 0 ? ` · ${noteCount} note${noteCount > 1 ? "s" : ""}` : ""}
           </button>
         </div>
         <div className="flex h-[34px] flex-[0_0_400px] items-center justify-end">
