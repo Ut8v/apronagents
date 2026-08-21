@@ -5,6 +5,7 @@ import AgentBoard from "./components/AgentBoard";
 import AgentsView from "./components/AgentsView";
 import LiveFeed from "./components/LiveFeed";
 import MergeQueue from "./components/MergeQueue";
+import PlanReview from "./components/PlanReview";
 import ReviewCard from "./components/ReviewCard";
 import TaskBar from "./components/TaskBar";
 import WorkspaceTree from "./components/WorkspaceTree";
@@ -121,6 +122,9 @@ export default function App() {
           </aside>
           <div className="flex flex-col gap-5 bg-base p-5">
             <TaskBar planning={state?.planning} />
+            {state?.plan_review && (
+              <PlanReview plan={state.plan_review} onAction={refresh} />
+            )}
             {state && (
               <>
                 <AgentBoard state={state} />

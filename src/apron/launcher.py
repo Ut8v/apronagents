@@ -104,6 +104,9 @@ class Launcher:
             )
             for n in range(1, settings.worker_count + 1)
         ]
+        self.controller = MergeController(
+            self.repo, CommandTester(settings.test_command), self.bus, settings.mode
+        )
         graph = IssueGraph()
         self.orchestrator = Orchestrator(
             definition=self._resolve(AgentRole.ORCHESTRATOR),
@@ -111,9 +114,9 @@ class Launcher:
             graph=graph,
             assigner=Assigner(graph, self.workers),
             bus=self.bus,
-        )
-        self.controller = MergeController(
-            self.repo, CommandTester(settings.test_command), self.bus, settings.mode
+            # Supervised runs hold plans at the plan gate; reads the live
+            # mode so the dashboard toggle applies to in-flight planning.
+            mode_provider=lambda: self.controller.mode,
         )
         self.controller.start()
         self.bus.subscribe(self._on_task_completed, TaskCompleted)

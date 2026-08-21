@@ -218,3 +218,22 @@ def test_send_back_carries_line_annotations(client, ctx):
     [event] = [e for e in events if isinstance(e, ChangesRequested)]
     assert event.reason == "close, but"
     assert event.annotations == ({"path": "cli.py", "line": 14, "note": "guard None"},)
+
+
+def test_plan_approve_route_publishes_the_edited_plan(client, ctx):
+    from apron.bus.events import PlanApproved
+
+    events = record_events(ctx)
+    response = client.post(
+        "/api/plan/approve",
+        json={
+            "task_id": "t1",
+            "issues": [
+                {"id": "a", "title": "A", "description": "d", "depends_on": []}
+            ],
+        },
+    )
+    assert response.status_code == 200
+    [event] = [e for e in events if isinstance(e, PlanApproved)]
+    assert event.issues[0]["title"] == "A"
+    assert client.post("/api/plan/approve", json={"task_id": "t1", "issues": []}).status_code == 422

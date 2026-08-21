@@ -158,3 +158,26 @@ def test_planning_tracks_notes_for_the_current_unplanned_task():
 
     store.record(TaskPlanned(task_id="t1", issue_ids=("a",)))
     assert store.planning() == {"active": False, "notes": []}
+
+
+def test_pending_plan_tracks_the_gate():
+    from apron.bus.events import PlanApproved, PlanProposed, TaskReceived
+
+    store = StateStore()
+    assert store.pending_plan() is None
+
+    store.record(TaskReceived(task_id="t1", prompt="p"))
+    store.record(
+        PlanProposed(
+            task_id="t1",
+            issues=({"id": "a", "title": "A", "description": "", "depends_on": []},),
+        )
+    )
+    plan = store.pending_plan()
+    assert plan is not None and plan["task_id"] == "t1"
+    assert plan["issues"][0]["id"] == "a"
+    # A proposal also ends the "planner is thinking" phase.
+    assert store.planning() == {"active": False, "notes": []}
+
+    store.record(PlanApproved(task_id="t1", issues=()))
+    assert store.pending_plan() is None

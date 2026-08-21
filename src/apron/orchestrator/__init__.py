@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Callable
 
 from apron.agents.definition import AgentDefinition
 from apron.bus.bus import EventBus
@@ -19,15 +20,24 @@ from apron.bus.events import (
     IssueQueued,
     MergeConflictDetected,
     MergeSucceeded,
+    PlanApproved,
     PlanningProgress,
+    PlanProposed,
     TaskCompleted,
     TaskPlanned,
     TaskReceived,
     TestsFailed,
 )
+from apron.config import Mode
 from apron.orchestrator.assigner import Assigner
 from apron.orchestrator.issue_graph import IssueGraph
-from apron.orchestrator.planner import PlannedIssue, Planner, StaticPlanner
+from apron.orchestrator.planner import (
+    PlanError,
+    PlannedIssue,
+    Planner,
+    StaticPlanner,
+    issues_from_payload,
+)
 
 log = logging.getLogger(__name__)
 
@@ -51,15 +61,22 @@ class Orchestrator:
         graph: IssueGraph,
         assigner: Assigner,
         bus: EventBus,
+        mode_provider: Callable[[], Mode] | None = None,
     ) -> None:
         self.definition = definition
         self.planner = planner
         self.graph = graph
         self.assigner = assigner
         self.bus = bus
+        # With a provider wired, supervised runs hold every plan at the plan
+        # gate for human review before any issue is queued. Without one
+        # (tests, embedded use) plans dispatch immediately, as before.
+        self._mode_provider = mode_provider
+        self._pending_plans: dict[str, list[PlannedIssue]] = {}
         self._work_tasks: set[asyncio.Task] = set()
         self._task_id: str | None = None
         bus.subscribe(self._on_task_received, TaskReceived)
+        bus.subscribe(self._on_plan_approved, PlanApproved)
         bus.subscribe(self._on_merge_succeeded, MergeSucceeded)
         bus.subscribe(
             self._on_sent_back, (ChangesRequested, MergeConflictDetected, TestsFailed)
@@ -91,12 +108,53 @@ class Orchestrator:
             log.exception("planning failed for task %s", event.task_id)
             await note("planning failed — check the apron terminal for details")
             return
+        if self._gate_active():
+            # Supervised: the plan waits for the human, exactly like a merge.
+            self._pending_plans[event.task_id] = issues
+            await self.bus.publish(
+                PlanProposed(
+                    task_id=event.task_id,
+                    issues=tuple(
+                        {
+                            "id": i.issue_id,
+                            "title": i.title,
+                            "description": i.description,
+                            "depends_on": list(i.depends_on),
+                        }
+                        for i in issues
+                    ),
+                )
+            )
+            return
+        await self._queue_issues(event.task_id, issues)
+
+    def _gate_active(self) -> bool:
+        return (
+            self._mode_provider is not None
+            and self._mode_provider() is Mode.SUPERVISED
+        )
+
+    async def _on_plan_approved(self, event: PlanApproved) -> None:
+        """The human cleared a (possibly edited) plan: queue it for real."""
+        if event.task_id not in self._pending_plans:
+            return
+        try:
+            issues = issues_from_payload({"issues": list(event.issues)})
+        except PlanError as error:
+            log.error("approved plan for %s rejected: %s", event.task_id, error)
+            return
+        del self._pending_plans[event.task_id]
+        await self._queue_issues(event.task_id, issues)
+
+    async def _queue_issues(
+        self, task_id: str, issues: list[PlannedIssue]
+    ) -> None:
         for issue in issues:
             self.graph.add(issue)
             await self.bus.publish(
                 IssueQueued(
                     issue_id=issue.issue_id,
-                    task_id=event.task_id,
+                    task_id=task_id,
                     title=issue.title,
                     description=issue.description,
                     depends_on=issue.depends_on,
@@ -104,7 +162,7 @@ class Orchestrator:
             )
         await self.bus.publish(
             TaskPlanned(
-                task_id=event.task_id,
+                task_id=task_id,
                 issue_ids=tuple(issue.issue_id for issue in issues),
             )
         )

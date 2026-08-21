@@ -122,6 +122,19 @@ def planning_lines(seen: int, planning: dict) -> tuple[list[str], int]:
     return [f"  ▸ planner · {note}" for note in notes[seen:]], len(notes)
 
 
+def plan_gate_line(
+    announced: str | None, plan: dict | None, url: str
+) -> tuple[str | None, str | None]:
+    """One narration line the first time a plan shows up at the gate."""
+    if plan and plan.get("task_id") != announced:
+        line = (
+            f"◆ plan proposed: {len(plan.get('issues', []))} issue(s) held at "
+            f"the plan gate — review at {url}"
+        )
+        return line, plan["task_id"]
+    return None, announced
+
+
 def state_changes(previous: dict, issues: list[dict]) -> tuple[list[str], dict]:
     """Diff two state snapshots into narration lines (pure, for testing)."""
     lines: list[str] = []
@@ -142,6 +155,8 @@ def follow(host: str, port: int) -> None:
     """Poll a running apron and narrate the run until it finishes."""
     previous: dict = {}
     seen_notes = 0
+    announced_plan: str | None = None
+    shown = "localhost" if host in ("127.0.0.1", "0.0.0.0") else host
     try:
         while True:
             try:
@@ -152,6 +167,11 @@ def follow(host: str, port: int) -> None:
             notes, seen_notes = planning_lines(seen_notes, state.get("planning", {}))
             for line in notes:
                 print(line, flush=True)
+            gate, announced_plan = plan_gate_line(
+                announced_plan, state.get("plan_review"), f"http://{shown}:{port}"
+            )
+            if gate:
+                print(gate, flush=True)
             lines, previous = state_changes(previous, state["issues"])
             for line in lines:
                 print(line, flush=True)

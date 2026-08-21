@@ -19,7 +19,9 @@ from apron.bus.events import (
     MergeConflictDetected,
     MergeStarted,
     MergeSucceeded,
+    PlanApproved,
     PlanningProgress,
+    PlanProposed,
     ProgressReported,
     ReviewOpened,
     TaskCompleted,
@@ -66,6 +68,14 @@ class ConsoleReporter:
             return self._bold(f"◆ task {event.task_id}: {event.prompt[:100]}")
         if isinstance(event, PlanningProgress):
             return self._dim(f"  ▸ planner · {event.note}")
+        if isinstance(event, PlanProposed):
+            where = f" — review at {self.dashboard_url}" if self.dashboard_url else ""
+            return self._bold(
+                f"◆ plan proposed: {len(event.issues)} issue(s) held at the "
+                f"plan gate{where}"
+            )
+        if isinstance(event, PlanApproved):
+            return self._dim(f"  ✓ plan approved ({len(event.issues)} issue(s))")
         if isinstance(event, TaskPlanned):
             issues = ", ".join(event.issue_ids)
             return self._bold(f"◆ planned {len(event.issue_ids)} issue(s): {issues}")

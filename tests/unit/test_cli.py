@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from apron.cli import build_parser, main, send_task
-from apron.config import Settings
+from apron.config import Mode, Settings
 from apron.launcher import Launcher
 
 
@@ -36,6 +36,7 @@ async def test_send_task_reaches_a_running_apron(tmp_path: Path):
             working_dir=project,
             user_dir=tmp_path / "home",
             runner="demo",
+            mode=Mode.AUTONOMOUS,  # no plan gate: these test dispatch plumbing
             port=0,
             open_browser=False,
         )
@@ -64,6 +65,7 @@ async def test_start_with_initial_task_dispatches_on_boot(tmp_path: Path):
             working_dir=project,
             user_dir=tmp_path / "home",
             runner="demo",
+            mode=Mode.AUTONOMOUS,  # no plan gate: these test dispatch plumbing
             port=0,
             open_browser=False,
         ),
