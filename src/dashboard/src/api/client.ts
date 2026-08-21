@@ -34,9 +34,22 @@ export interface PlanningState {
   notes: string[];
 }
 
+export interface PlanIssue {
+  id: string;
+  title: string;
+  description: string;
+  depends_on: string[];
+}
+
+export interface PlanReviewState {
+  task_id: string;
+  issues: PlanIssue[];
+}
+
 export interface AppState {
   mode: "supervised" | "autonomous";
   planning: PlanningState;
+  plan_review: PlanReviewState | null;
   issues: Issue[];
   workers: WorkerInfo[];
 }
@@ -102,6 +115,11 @@ export const api = {
       body: JSON.stringify({ prompt }),
     }),
   getWorkspace: () => request<{ files: WorkspaceFile[] }>("/api/workspace"),
+  approvePlan: (taskId: string, issues: PlanIssue[]) =>
+    request("/api/plan/approve", {
+      method: "POST",
+      body: JSON.stringify({ task_id: taskId, issues }),
+    }),
   getDiff: (issueId: string) => request<IssueDiff>(`/api/issues/${encodeURIComponent(issueId)}/diff`),
   approve: (issueId: string) =>
     request(`/api/issues/${encodeURIComponent(issueId)}/approve`, { method: "POST" }),

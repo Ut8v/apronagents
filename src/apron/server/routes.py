@@ -20,6 +20,7 @@ from apron.bus.bus import EventBus
 from apron.bus.events import (
     AgentDefinitionsReloaded,
     ChangesRequested,
+    PlanApproved,
     ReviewApproved,
     TaskReceived,
 )
@@ -63,6 +64,18 @@ class ModeIn(BaseModel):
     mode: Mode
 
 
+class PlanIssueIn(BaseModel):
+    id: str
+    title: str
+    description: str = ""
+    depends_on: list[str] = []
+
+
+class PlanApproveIn(BaseModel):
+    task_id: str
+    issues: list[PlanIssueIn]
+
+
 class AgentIn(BaseModel):
     description: str = ""
     role: AgentRole = AgentRole.WORKER
@@ -76,6 +89,7 @@ def state_payload(ctx: ServerContext) -> dict:
     return {
         "mode": ctx.controller.mode.value,
         "planning": ctx.store.planning(),
+        "plan_review": ctx.store.pending_plan(),
         "issues": [
             {
                 "issue_id": i.issue_id,
@@ -165,6 +179,19 @@ def build_router(ctx: ServerContext) -> APIRouter:
                 for p in paths
             ]
         }
+
+    @router.post("/plan/approve")
+    async def approve_plan(body: PlanApproveIn) -> dict:
+        """Clear a (possibly edited) plan through the plan gate."""
+        if not body.issues:
+            raise HTTPException(422, "a plan needs at least one issue")
+        await ctx.bus.publish(
+            PlanApproved(
+                task_id=body.task_id,
+                issues=tuple(issue.model_dump() for issue in body.issues),
+            )
+        )
+        return {"ok": True}
 
     @router.get("/issues/{issue_id}/diff")
     async def get_diff(issue_id: str) -> dict:

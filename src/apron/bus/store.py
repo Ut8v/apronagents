@@ -165,17 +165,35 @@ class StateStore:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT kind, payload FROM events"
-                " WHERE kind IN ('TaskReceived', 'TaskPlanned', 'PlanningProgress')"
+                " WHERE kind IN ('TaskReceived', 'TaskPlanned', 'PlanProposed',"
+                "                'PlanningProgress')"
                 " ORDER BY seq DESC LIMIT 100"
             ).fetchall()
         notes: list[str] = []
         for row in rows:  # newest first, stop at the current task's start
-            if row["kind"] == "TaskPlanned":
+            if row["kind"] in ("TaskPlanned", "PlanProposed"):
                 return {"active": False, "notes": []}
             if row["kind"] == "TaskReceived":
                 return {"active": True, "notes": list(reversed(notes[:limit]))}
             notes.append(json.loads(row["payload"])["note"])
         return {"active": False, "notes": []}
+
+    def pending_plan(self) -> dict | None:
+        """The newest proposed plan still waiting at the plan gate, or None
+        once it was approved (or a newer task superseded it)."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT kind, payload FROM events"
+                " WHERE kind IN ('TaskReceived', 'PlanProposed', 'PlanApproved')"
+                " ORDER BY seq DESC LIMIT 50"
+            ).fetchall()
+        for row in rows:  # newest first
+            if row["kind"] == "PlanProposed":
+                payload = json.loads(row["payload"])
+                return {"task_id": payload["task_id"], "issues": payload["issues"]}
+            if row["kind"] in ("PlanApproved", "TaskReceived"):
+                return None
+        return None
 
     def issues(self) -> list[IssueSnapshot]:
         """Every known issue, oldest first."""

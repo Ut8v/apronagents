@@ -93,6 +93,27 @@ class PlanningProgress(Event):
 
 @_register
 @dataclass(frozen=True, kw_only=True)
+class PlanProposed(Event):
+    """The planner produced a split that now waits at the plan gate.
+    ``issues`` is a tuple of ``{"id", "title", "description", "depends_on"}``
+    dicts — the human may edit them before approving."""
+
+    task_id: str
+    issues: tuple = ()
+
+
+@_register
+@dataclass(frozen=True, kw_only=True)
+class PlanApproved(Event):
+    """The human cleared the plan (possibly edited) for dispatch. Same
+    issue shape as :class:`PlanProposed`."""
+
+    task_id: str
+    issues: tuple = ()
+
+
+@_register
+@dataclass(frozen=True, kw_only=True)
 class TaskPlanned(Event):
     task_id: str
     issue_ids: tuple[str, ...]

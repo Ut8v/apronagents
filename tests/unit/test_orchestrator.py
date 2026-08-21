@@ -86,3 +86,100 @@ async def test_failed_tests_feed_their_log_into_the_rework_pass():
 
     assert "failed the test suite" in worker.issues[1].description
     assert "AssertionError: boom" in worker.issues[1].description
+
+
+async def test_supervised_plans_hold_at_the_gate_until_approved():
+    from apron.bus.events import PlanApproved, PlanProposed
+    from apron.config import Mode
+
+    bus = EventBus()
+    graph = IssueGraph()
+    worker = RecordingWorker()
+    events: list = []
+    bus.subscribe(events.append)
+    Orchestrator(
+        definition=DEFINITION,
+        planner=StaticPlanner([PlannedIssue("i1", "Add parser", "Parse it.")]),
+        graph=graph,
+        assigner=Assigner(graph, [worker]),
+        bus=bus,
+        mode_provider=lambda: Mode.SUPERVISED,
+    )
+    await bus.publish(TaskReceived(task_id="t1", prompt="do it"))
+    await settle()
+
+    # Nothing dispatched; the proposal is on the bus instead.
+    assert worker.issues == []
+    [proposed] = [e for e in events if isinstance(e, PlanProposed)]
+    assert proposed.issues[0]["id"] == "i1"
+
+    # Approve an edited version: retitled, plus a second issue.
+    await bus.publish(
+        PlanApproved(
+            task_id="t1",
+            issues=(
+                {"id": "i1", "title": "Parse configs", "description": "d", "depends_on": []},
+                {"id": "i2", "title": "Add docs", "description": "d", "depends_on": ["i1"]},
+            ),
+        )
+    )
+    await settle()
+    assert [i.title for i in worker.issues] == ["Parse configs"]  # i2 waits on i1
+    assert "i1" in graph and "i2" in graph
+
+
+async def test_autonomous_plans_skip_the_gate():
+    from apron.config import Mode
+
+    bus = EventBus()
+    graph = IssueGraph()
+    worker = RecordingWorker()
+    Orchestrator(
+        definition=DEFINITION,
+        planner=StaticPlanner([PlannedIssue("i1", "Add parser", "Parse it.")]),
+        graph=graph,
+        assigner=Assigner(graph, [worker]),
+        bus=bus,
+        mode_provider=lambda: Mode.AUTONOMOUS,
+    )
+    await bus.publish(TaskReceived(task_id="t1", prompt="do it"))
+    await settle()
+    assert [i.issue_id for i in worker.issues] == ["i1"]
+
+
+async def test_approving_an_unknown_or_invalid_plan_is_ignored():
+    from apron.bus.events import PlanApproved
+    from apron.config import Mode
+
+    bus = EventBus()
+    graph = IssueGraph()
+    worker = RecordingWorker()
+    Orchestrator(
+        definition=DEFINITION,
+        planner=StaticPlanner([PlannedIssue("i1", "Add parser", "Parse it.")]),
+        graph=graph,
+        assigner=Assigner(graph, [worker]),
+        bus=bus,
+        mode_provider=lambda: Mode.SUPERVISED,
+    )
+    await bus.publish(TaskReceived(task_id="t1", prompt="do it"))
+    await settle()
+
+    # Unknown task id: ignored.
+    await bus.publish(PlanApproved(task_id="other", issues=({"id": "x", "title": "X", "description": "", "depends_on": []},)))
+    await settle()
+    assert worker.issues == []
+
+    # Invalid plan (dangling dependency): rejected, still pending.
+    await bus.publish(
+        PlanApproved(task_id="t1", issues=({"id": "i1", "title": "A", "description": "", "depends_on": ["ghost"]},))
+    )
+    await settle()
+    assert worker.issues == []
+
+    # A valid approval still works afterwards.
+    await bus.publish(
+        PlanApproved(task_id="t1", issues=({"id": "i1", "title": "A", "description": "", "depends_on": []},))
+    )
+    await settle()
+    assert [i.issue_id for i in worker.issues] == ["i1"]
