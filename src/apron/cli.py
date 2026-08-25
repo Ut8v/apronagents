@@ -85,7 +85,20 @@ def build_parser() -> argparse.ArgumentParser:
     task = subparsers.add_parser(
         "task", help="dispatch a task to a running apron from your terminal"
     )
-    task.add_argument("prompt", nargs="+", help="the task description")
+    task.add_argument(
+        "prompt", nargs="*", default=[], help="the task description"
+    )
+    task.add_argument(
+        "--from-issue",
+        type=int,
+        action="append",
+        default=[],
+        metavar="N",
+        help=(
+            "dispatch a GitHub issue of this project as the task "
+            "(repeatable; combines several issues into one task)"
+        ),
+    )
     task.add_argument("--port", type=int, default=DEFAULT_PORT, help="apron's dashboard port")
     task.add_argument("--host", default=DEFAULT_HOST, help="apron's host")
     task.add_argument(
@@ -104,6 +117,19 @@ def send_task(prompt: str, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -
         headers={"Content-Type": "application/json"},
     )
     with urllib.request.urlopen(request, timeout=10) as response:
+        return json.loads(response.read())["task_id"]
+
+
+def send_task_from_issues(
+    numbers: list[int], host: str = DEFAULT_HOST, port: int = DEFAULT_PORT
+) -> str:
+    """Ask a running apron to dispatch GitHub issues as one task."""
+    request = urllib.request.Request(
+        f"http://{host}:{port}/api/task/from-issues",
+        data=json.dumps({"numbers": numbers}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
         return json.loads(response.read())["task_id"]
 
 
@@ -203,8 +229,19 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "task":
         prompt = " ".join(args.prompt).strip()
+        if bool(prompt) == bool(args.from_issue):
+            print("apron: give either a task description or --from-issue N")
+            return 2
         try:
-            task_id = send_task(prompt, host=args.host, port=args.port)
+            if args.from_issue:
+                task_id = send_task_from_issues(
+                    args.from_issue, host=args.host, port=args.port
+                )
+            else:
+                task_id = send_task(prompt, host=args.host, port=args.port)
+        except urllib.error.HTTPError as error:
+            print(f"apron: {error.read().decode(errors='replace')[:200]}")
+            return 1
         except (urllib.error.URLError, OSError):
             print(
                 f"apron: nothing is listening on {args.host}:{args.port} — "

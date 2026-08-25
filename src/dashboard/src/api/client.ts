@@ -83,6 +83,12 @@ export interface IssueDiff {
   diff: string;
 }
 
+export interface GithubIssue {
+  number: number;
+  title: string;
+  labels: string[];
+}
+
 export interface DiffAnnotation {
   path: string;
   line: number;
@@ -115,6 +121,13 @@ export const api = {
       body: JSON.stringify({ prompt }),
     }),
   getWorkspace: () => request<{ files: WorkspaceFile[] }>("/api/workspace"),
+  getGithubIssues: () =>
+    request<{ available: boolean; issues: GithubIssue[] }>("/api/github/issues"),
+  submitTaskFromIssues: (numbers: number[]) =>
+    request<{ task_id: string }>("/api/task/from-issues", {
+      method: "POST",
+      body: JSON.stringify({ numbers }),
+    }),
   approvePlan: (taskId: string, issues: PlanIssue[]) =>
     request("/api/plan/approve", {
       method: "POST",
