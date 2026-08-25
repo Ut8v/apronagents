@@ -237,3 +237,42 @@ def test_plan_approve_route_publishes_the_edited_plan(client, ctx):
     [event] = [e for e in events if isinstance(e, PlanApproved)]
     assert event.issues[0]["title"] == "A"
     assert client.post("/api/plan/approve", json={"task_id": "t1", "issues": []}).status_code == 422
+
+
+def test_github_issue_import_endpoints(client, ctx, monkeypatch):
+    import apron.server.routes as routes
+    from apron.bus.events import TaskReceived
+
+    async def fake_list(working_dir):
+        return [{"number": 5, "title": "Fix parser", "labels": ["bug"]}]
+
+    async def fake_fetch(working_dir, numbers):
+        return [
+            {"number": n, "title": "Fix parser", "body": "It crashes.", "url": "u"}
+            for n in numbers
+        ]
+
+    monkeypatch.setattr(routes, "list_open_issues", fake_list)
+    monkeypatch.setattr(routes, "fetch_issues", fake_fetch)
+
+    listing = client.get("/api/github/issues").json()
+    assert listing["available"] is True
+    assert listing["issues"][0]["number"] == 5
+
+    events = record_events(ctx)
+    response = client.post("/api/task/from-issues", json={"numbers": [5]})
+    assert response.status_code == 200
+    [event] = [e for e in events if isinstance(e, TaskReceived)]
+    assert "GitHub issue #5: Fix parser" in event.prompt
+    assert "It crashes." in event.prompt
+    assert client.post("/api/task/from-issues", json={"numbers": []}).status_code == 422
+
+
+def test_github_issues_unavailable_without_gh(client, monkeypatch):
+    import apron.server.routes as routes
+
+    async def fake_list(working_dir):
+        return None
+
+    monkeypatch.setattr(routes, "list_open_issues", fake_list)
+    assert client.get("/api/github/issues").json() == {"available": False, "issues": []}

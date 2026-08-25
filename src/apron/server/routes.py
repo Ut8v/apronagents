@@ -27,6 +27,12 @@ from apron.bus.events import (
 from apron.bus.store import StateStore
 from apron.config import Mode, Settings
 from apron.merge.controller import MergeController
+from apron.orchestrator.sources import (
+    SourceError,
+    fetch_issues,
+    list_open_issues,
+    prompt_from_issues,
+)
 from apron.sandbox.repo import SandboxRepo
 from apron.workers.worker import Worker
 
@@ -45,6 +51,10 @@ class ServerContext:
 
 class TaskIn(BaseModel):
     prompt: str
+
+
+class TaskFromIssuesIn(BaseModel):
+    numbers: list[int]
 
 
 class AnnotationIn(BaseModel):
@@ -141,6 +151,28 @@ def build_router(ctx: ServerContext) -> APIRouter:
     async def submit_task(body: TaskIn) -> dict:
         task_id = uuid.uuid4().hex[:8]
         await ctx.bus.publish(TaskReceived(task_id=task_id, prompt=body.prompt))
+        return {"task_id": task_id}
+
+    @router.get("/github/issues")
+    async def github_issues() -> dict:
+        """Open issues of the project's GitHub repo, for the import picker.
+        ``available`` is False when gh is missing or there is no remote."""
+        issues = await list_open_issues(ctx.settings.working_dir)
+        return {"available": issues is not None, "issues": issues or []}
+
+    @router.post("/task/from-issues")
+    async def submit_task_from_issues(body: TaskFromIssuesIn) -> dict:
+        """Dispatch selected GitHub issues as one task."""
+        if not body.numbers:
+            raise HTTPException(422, "select at least one issue")
+        try:
+            issues = await fetch_issues(ctx.settings.working_dir, body.numbers)
+        except SourceError as error:
+            raise HTTPException(502, str(error)) from error
+        task_id = uuid.uuid4().hex[:8]
+        await ctx.bus.publish(
+            TaskReceived(task_id=task_id, prompt=prompt_from_issues(issues))
+        )
         return {"task_id": task_id}
 
     @router.get("/workspace")

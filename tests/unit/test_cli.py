@@ -113,3 +113,15 @@ def test_dashboard_url_shows_localhost_for_loopback(tmp_path: Path):
     assert loop.dashboard_url == "http://localhost:4650"
     lan = Settings(working_dir=tmp_path, host="192.168.1.20", port=4650)
     assert lan.dashboard_url == "http://192.168.1.20:4650"
+
+
+def test_task_parses_from_issue_flags():
+    args = build_parser().parse_args(["task", "--from-issue", "12", "--from-issue", "37"])
+    assert args.from_issue == [12, 37]
+    assert args.prompt == []
+
+
+def test_task_requires_prompt_or_issues_not_both(capsys):
+    assert main(["task"]) == 2
+    assert main(["task", "do it", "--from-issue", "3"]) == 2
+    assert "either a task description or --from-issue" in capsys.readouterr().out
