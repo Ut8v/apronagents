@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, PlanningState } from "../api/client";
+import GithubImport from "./GithubImport";
 
 export default function TaskBar({ planning }: { planning?: PlanningState }) {
   const [prompt, setPrompt] = useState("");
@@ -102,6 +103,7 @@ export default function TaskBar({ planning }: { planning?: PlanningState }) {
           prefer your terminal? <span className="text-[oklch(0.66_0.05_205)]">apron task "…"</span>
         </span>
       </div>
+      <GithubImport onDispatched={setEcho} />
     </div>
   );
 }
