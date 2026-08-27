@@ -181,3 +181,57 @@ def test_pending_plan_tracks_the_gate():
 
     store.record(PlanApproved(task_id="t1", issues=()))
     assert store.pending_plan() is None
+
+
+def _record_full_run(store, task_id="t1", issue_id="i1"):
+    from apron.bus.events import (
+        HandoffCompleted,
+        MergeSucceeded,
+        TaskReceived,
+    )
+
+    store.record(TaskReceived(task_id=task_id, prompt=f"do {task_id}"))
+    store.record(
+        IssueQueued(issue_id=issue_id, task_id=task_id, title="T", description="")
+    )
+    store.record(IssueClaimed(issue_id=issue_id, worker_id="w1"))
+    store.record(WorkStarted(issue_id=issue_id, worker_id="w1", branch=f"issue/{issue_id}"))
+    store.record(ReviewOpened(issue_id=issue_id, worker_id="w1", branch=f"issue/{issue_id}"))
+    store.record(ReviewApproved(issue_id=issue_id))
+    store.record(MergeStarted(issue_id=issue_id, branch=f"issue/{issue_id}"))
+    store.record(MergeSucceeded(issue_id=issue_id, branch=f"issue/{issue_id}"))
+    store.record(
+        HandoffCompleted(task_id=task_id, target_dir="/p", files=("a.py", "b.md"))
+    )
+
+
+def test_runs_summarize_each_task_newest_first():
+    from apron.bus.events import TaskReceived
+
+    store = StateStore()
+    _record_full_run(store, task_id="t1", issue_id="i1")
+    store.record(TaskReceived(task_id="t2", prompt="do t2"))
+
+    runs = store.runs()
+    assert [r["task_id"] for r in runs] == ["t2", "t1"]
+    assert runs[0]["status"] == "in flight" and runs[0]["finished_at"] is None
+    done = runs[1]
+    assert done["status"] == "completed"
+    assert (done["issues"], done["merged"], done["files"]) == (1, 1, 2)
+    assert done["finished_at"] is not None
+
+
+def test_task_events_collect_a_runs_full_story():
+    store = StateStore()
+    _record_full_run(store, task_id="t1", issue_id="i1")
+    _record_full_run(store, task_id="t2", issue_id="i2")  # unrelated run
+
+    kinds = [e.kind for e in store.task_events("t1")]
+    assert kinds == [
+        "TaskReceived", "IssueQueued", "IssueClaimed", "WorkStarted",
+        "ReviewOpened", "ReviewApproved", "MergeStarted", "MergeSucceeded",
+        "HandoffCompleted",
+    ]
+    assert all(
+        getattr(e, "issue_id", "i1") == "i1" for e in store.task_events("t1")
+    )
