@@ -132,3 +132,31 @@ def test_settings_persist_the_journal_under_dot_apron(tmp_path: Path):
 
     settings = load_settings(working_dir=tmp_path)
     assert settings.db_path == tmp_path.resolve() / ".apron" / "runs.db"
+
+
+def test_report_lists_runs_and_prints_one(tmp_path: Path, capsys):
+    from apron.bus.events import HandoffCompleted, TaskReceived
+    from apron.bus.store import StateStore
+
+    db = tmp_path / ".apron" / "runs.db"
+    db.parent.mkdir()
+    store = StateStore(db)
+    store.record(TaskReceived(task_id="abc12345", prompt="add dark mode"))
+    store.record(HandoffCompleted(task_id="abc12345", target_dir="/p", files=("a.py",)))
+    store.close()
+
+    assert main(["report", "--dir", str(tmp_path)]) == 0
+    listing = capsys.readouterr().out
+    assert "abc12345" in listing and "completed" in listing and "add dark mode" in listing
+
+    assert main(["report", "abc", "--dir", str(tmp_path)]) == 0
+    report = capsys.readouterr().out
+    assert report.startswith("# Apron run abc12345")
+    assert "add dark mode" in report
+
+    assert main(["report", "zzz", "--dir", str(tmp_path)]) == 1
+
+
+def test_report_without_history_fails_politely(tmp_path: Path, capsys):
+    assert main(["report", "--dir", str(tmp_path)]) == 1
+    assert "no run history yet" in capsys.readouterr().out
