@@ -33,6 +33,7 @@ from apron.orchestrator.sources import (
     list_open_issues,
     prompt_from_issues,
 )
+from apron.report import run_report
 from apron.sandbox.repo import SandboxRepo
 from apron.workers.worker import Worker
 
@@ -152,6 +153,20 @@ def build_router(ctx: ServerContext) -> APIRouter:
         task_id = uuid.uuid4().hex[:8]
         await ctx.bus.publish(TaskReceived(task_id=task_id, prompt=body.prompt))
         return {"task_id": task_id}
+
+    @router.get("/runs")
+    async def runs() -> list[dict]:
+        """Past and current runs, newest first."""
+        return ctx.store.runs()
+
+    @router.get("/runs/{task_id}/report")
+    async def run_report_endpoint(task_id: str) -> dict:
+        events = ctx.store.task_events(task_id)
+        try:
+            markdown = run_report(events)
+        except ValueError:
+            raise HTTPException(404, f"unknown run {task_id!r}") from None
+        return {"task_id": task_id, "markdown": markdown}
 
     @router.get("/github/issues")
     async def github_issues() -> dict:
