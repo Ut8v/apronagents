@@ -53,6 +53,8 @@ class Launcher:
         self.settings = settings
         self._initial_task = initial_task
         self.bus = EventBus()
+        if settings.db_path is not None:
+            settings.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.store = StateStore(settings.db_path or ":memory:")
         self._store_subscription = self.bus.subscribe(self.store.record)
         self.repo: SandboxRepo | None = None

@@ -125,3 +125,10 @@ def test_task_requires_prompt_or_issues_not_both(capsys):
     assert main(["task"]) == 2
     assert main(["task", "do it", "--from-issue", "3"]) == 2
     assert "either a task description or --from-issue" in capsys.readouterr().out
+
+
+def test_settings_persist_the_journal_under_dot_apron(tmp_path: Path):
+    from apron.config import load_settings
+
+    settings = load_settings(working_dir=tmp_path)
+    assert settings.db_path == tmp_path.resolve() / ".apron" / "runs.db"

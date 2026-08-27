@@ -101,8 +101,12 @@ def load_settings(
     """
     env = os.environ
     resolved_mode = mode or env.get("APRON_MODE", Mode.SUPERVISED)
+    resolved_dir = (working_dir or Path.cwd()).resolve()
     return Settings(
-        working_dir=(working_dir or Path.cwd()).resolve(),
+        working_dir=resolved_dir,
+        # Persist the journal so past runs (and their reports) survive
+        # restarts. Settings' own default stays in-memory for embedded use.
+        db_path=resolved_dir / ".apron" / "runs.db",
         mode=Mode(resolved_mode),
         worker_count=worker_count or int(env.get("APRON_WORKERS", DEFAULT_WORKER_COUNT)),
         port=port or int(env.get("APRON_PORT", DEFAULT_PORT)),
