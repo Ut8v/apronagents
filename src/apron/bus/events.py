@@ -236,6 +236,7 @@ class TaskCompleted(Event):
 class HandoffCompleted(Event):
     task_id: str
     target_dir: str
+    files: tuple[str, ...] = ()
 
 
 # --- workers and agents ------------------------------------------------------

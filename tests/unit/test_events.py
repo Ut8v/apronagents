@@ -63,3 +63,11 @@ def test_annotations_survive_the_json_round_trip():
     # Through actual JSON, as the store journals it.
     restored = event_from_dict(json.loads(json.dumps(event.to_dict())))
     assert restored.annotations == ({"path": "cli.py", "line": 14, "note": "guard None"},)
+
+
+def test_handoff_files_survive_the_round_trip():
+    from apron.bus.events import HandoffCompleted
+
+    event = HandoffCompleted(task_id="t1", target_dir="/p", files=("a.py", "b.md"))
+    restored = event_from_dict(event.to_dict())
+    assert restored.files == ("a.py", "b.md")
