@@ -60,12 +60,49 @@ No account? Try the whole flow with fake agents:
 apron start --runner demo
 ```
 
-Common flags:
+## Commands
+
+### `apron start` — boot everything and open the dashboard
 
 ```sh
-apron start [--mode supervised|autonomous] [--runner ...] [--test-command 'pytest -q']
-apron task "add dark mode"   # dispatch to a running apron from your terminal
+apron start                          # supervised, auto-detected runner, current dir
+apron start "add dark mode"          # dispatch this task as soon as apron is up
 ```
+
+| Flag | What it does |
+|---|---|
+| `--mode supervised\|autonomous` | Supervised gates the plan and every merge behind your click; autonomous merges on green tests (default: supervised) |
+| `--runner claude-code\|codex\|api\|demo` | Agent backend (default: auto-detect — claude CLI, then codex CLI, then API credentials, then demo) |
+| `--workers N` | Number of worker agents (default: 3) |
+| `--test-command 'pytest -q'` | Shell command run against every candidate merge |
+| `--dir PATH` | Project directory to work on (default: current directory) |
+| `--port N` | Dashboard port (default: 4650) |
+| `--with-session-context` | Summarize your most recent interactive Claude session for this project and give it to the planner and workers |
+| `--no-browser` | Don't open the dashboard in a browser |
+
+### `apron task` — dispatch to a running apron from your terminal
+
+```sh
+apron task "add dark mode"                 # dispatch a task
+apron task "add dark mode" --follow        # ...and narrate the run right here
+apron task --from-issue 42                 # dispatch a GitHub issue of this repo
+apron task --from-issue 42 --from-issue 43 # several issues as one task
+```
+
+### `apron report` — run history and shareable reports
+
+```sh
+apron report            # list past runs of this project
+apron report 8a645bde   # print one run's markdown report (a unique prefix works)
+```
+
+The report is the run's full audit trail — the task, the plan and whether it
+passed the plan gate, every review with its send-back reasons and line notes,
+what merged when, and exactly which files the handoff copied. Pipe it into a
+file or paste it into a PR.
+
+Every setting is also an environment variable: `APRON_MODE`, `APRON_RUNNER`,
+`APRON_WORKERS`, `APRON_PORT`, `APRON_TEST_COMMAND`, `APRON_SESSION_CONTEXT=1`.
 
 ## Quick start from a clone
 
