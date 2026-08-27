@@ -276,3 +276,18 @@ def test_github_issues_unavailable_without_gh(client, monkeypatch):
 
     monkeypatch.setattr(routes, "list_open_issues", fake_list)
     assert client.get("/api/github/issues").json() == {"available": False, "issues": []}
+
+
+def test_runs_and_report_endpoints(client, ctx):
+    from apron.bus.events import HandoffCompleted, TaskReceived
+
+    ctx.store.record(TaskReceived(task_id="t9", prompt="ship it"))
+    ctx.store.record(HandoffCompleted(task_id="t9", target_dir="/p", files=("a.py",)))
+
+    runs = client.get("/api/runs").json()
+    assert runs[0]["task_id"] == "t9" and runs[0]["status"] == "completed"
+
+    report = client.get("/api/runs/t9/report").json()
+    assert report["markdown"].startswith("# Apron run t9")
+    assert "ship it" in report["markdown"]
+    assert client.get("/api/runs/nope/report").status_code == 404

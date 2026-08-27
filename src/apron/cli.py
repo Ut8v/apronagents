@@ -106,6 +106,22 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="stay attached and narrate the run in this terminal",
     )
+
+    report = subparsers.add_parser(
+        "report",
+        help="list past runs, or print one run's shareable markdown report",
+    )
+    report.add_argument(
+        "task_id",
+        nargs="?",
+        help="run to report on (a unique prefix is enough); omit to list runs",
+    )
+    report.add_argument(
+        "--dir",
+        type=Path,
+        default=None,
+        help="project directory (default: current directory)",
+    )
     return parser
 
 
@@ -209,6 +225,44 @@ def follow(host: str, port: int) -> None:
         print("\ndetached — the run continues; reattach with apron task --follow")
 
 
+def report_command(task_id: str | None, directory: Path | None) -> int:
+    """List past runs, or print one run's markdown report to stdout."""
+    import time as _time
+
+    from apron.bus.store import StateStore
+    from apron.report import run_report
+
+    db = (directory or Path.cwd()).resolve() / ".apron" / "runs.db"
+    if not db.exists():
+        print(f"apron: no run history yet ({db} does not exist)")
+        return 1
+    store = StateStore(db)
+    try:
+        runs = store.runs()
+        if task_id is None:
+            if not runs:
+                print("no runs recorded yet")
+                return 0
+            for run in runs:
+                day = _time.strftime(
+                    "%Y-%m-%d %H:%M", _time.localtime(run["started_at"])
+                )
+                print(
+                    f"{run['task_id']}  {day}  {run['status']:<10}"
+                    f"  {run['merged']}/{run['issues']} merged  {run['prompt'][:60]}"
+                )
+            return 0
+        matches = [r for r in runs if r["task_id"].startswith(task_id)]
+        if len(matches) != 1:
+            hint = "no run matches" if not matches else "more than one run matches"
+            print(f"apron: {hint} {task_id!r} — run `apron report` to list runs")
+            return 1
+        print(run_report(store.task_events(matches[0]["task_id"])), end="")
+        return 0
+    finally:
+        store.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -226,6 +280,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         launch(settings, initial_task=" ".join(args.task).strip() or None)
         return 0
+
+    if args.command == "report":
+        return report_command(args.task_id, args.dir)
 
     if args.command == "task":
         prompt = " ".join(args.prompt).strip()

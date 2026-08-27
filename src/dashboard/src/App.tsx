@@ -7,10 +7,11 @@ import LiveFeed from "./components/LiveFeed";
 import MergeQueue from "./components/MergeQueue";
 import PlanReview from "./components/PlanReview";
 import ReviewCard from "./components/ReviewCard";
+import RunsView from "./components/RunsView";
 import TaskBar from "./components/TaskBar";
 import WorkspaceTree from "./components/WorkspaceTree";
 
-type View = "board" | "agents";
+type View = "board" | "runs" | "agents";
 
 export default function App() {
   const { state, events, connected, refresh } = useLiveFeed();
@@ -65,7 +66,7 @@ export default function App() {
           </span>
         </span>
         <nav className="flex gap-0.5 rounded-lg border border-[oklch(0.26_0.013_255)] bg-[oklch(0.19_0.011_255)] p-[3px]">
-          {(["board", "agents"] as View[]).map((name) => (
+          {(["board", "runs", "agents"] as View[]).map((name) => (
             <button
               key={name}
               onClick={() => setView(name)}
@@ -179,6 +180,8 @@ export default function App() {
             <LiveFeed events={events} />
           </aside>
         </div>
+      ) : view === "runs" ? (
+        <RunsView />
       ) : (
         <AgentsView />
       )}

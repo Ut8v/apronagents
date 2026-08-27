@@ -195,6 +195,69 @@ class StateStore:
                 return None
         return None
 
+    def runs(self) -> list[dict]:
+        """Every run in the journal, newest first: one entry per received
+        task, with its outcome derived from the events that followed."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT kind, payload FROM events"
+                " WHERE kind IN ('TaskReceived', 'IssueQueued', 'MergeSucceeded',"
+                "                'HandoffCompleted')"
+                " ORDER BY seq"
+            ).fetchall()
+        runs: dict[str, dict] = {}
+        issue_task: dict[str, str] = {}
+        for row in rows:
+            payload = json.loads(row["payload"])
+            kind = row["kind"]
+            if kind == "TaskReceived":
+                runs[payload["task_id"]] = {
+                    "task_id": payload["task_id"],
+                    "prompt": payload["prompt"],
+                    "started_at": payload["timestamp"],
+                    "finished_at": None,
+                    "issues": 0,
+                    "merged": 0,
+                    "files": 0,
+                    "status": "in flight",
+                }
+            elif kind == "IssueQueued":
+                run = runs.get(payload["task_id"])
+                if run is not None:
+                    run["issues"] += 1
+                    issue_task[payload["issue_id"]] = payload["task_id"]
+            elif kind == "MergeSucceeded":
+                run = runs.get(issue_task.get(payload["issue_id"], ""))
+                if run is not None:
+                    run["merged"] += 1
+            elif kind == "HandoffCompleted":
+                run = runs.get(payload["task_id"])
+                if run is not None:
+                    run["status"] = "completed"
+                    run["finished_at"] = payload["timestamp"]
+                    run["files"] = len(payload.get("files", []))
+        return list(reversed(list(runs.values())))
+
+    def task_events(self, task_id: str) -> list[Event]:
+        """Every journaled event belonging to one run, in order: the task's
+        own events plus all events of the issues it queued."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT payload FROM events ORDER BY seq"
+            ).fetchall()
+        events = [event_from_dict(json.loads(row["payload"])) for row in rows]
+        issue_ids = {
+            e.issue_id  # type: ignore[attr-defined]
+            for e in events
+            if isinstance(e, IssueQueued) and e.task_id == task_id
+        }
+        return [
+            event
+            for event in events
+            if getattr(event, "task_id", None) == task_id
+            or getattr(event, "issue_id", None) in issue_ids
+        ]
+
     def issues(self) -> list[IssueSnapshot]:
         """Every known issue, oldest first."""
         with self._lock:

@@ -83,6 +83,17 @@ export interface IssueDiff {
   diff: string;
 }
 
+export interface RunSummary {
+  task_id: string;
+  prompt: string;
+  started_at: number;
+  finished_at: number | null;
+  issues: number;
+  merged: number;
+  files: number;
+  status: string;
+}
+
 export interface GithubIssue {
   number: number;
   title: string;
@@ -121,6 +132,11 @@ export const api = {
       body: JSON.stringify({ prompt }),
     }),
   getWorkspace: () => request<{ files: WorkspaceFile[] }>("/api/workspace"),
+  getRuns: () => request<RunSummary[]>("/api/runs"),
+  getRunReport: (taskId: string) =>
+    request<{ task_id: string; markdown: string }>(
+      `/api/runs/${encodeURIComponent(taskId)}/report`,
+    ),
   getGithubIssues: () =>
     request<{ available: boolean; issues: GithubIssue[] }>("/api/github/issues"),
   submitTaskFromIssues: (numbers: number[]) =>
