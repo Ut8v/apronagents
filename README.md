@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# Apron Agents
+# Apron Agents [![PyPI Downloads](https://static.pepy.tech/personalized-badge/apronagents?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/apronagents)
 
 <p>
   <a href="https://pypi.org/project/apronagents/"><img src="https://img.shields.io/pypi/v/apronagents" alt="PyPI"></a>
